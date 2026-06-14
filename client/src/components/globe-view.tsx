@@ -294,11 +294,18 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng, onToggleBriefing
   const globeData = useMemo(() => {
     const now = Date.now();
 
-    // 4h filter + only critical/high — keep globe readable (auto-clean)
+    const isValidCoord = (v: unknown): boolean => {
+      if (v == null) return false;
+      const n = Number(v);
+      return !isNaN(n) && isFinite(n);
+    };
+
+    // 4h filter + only critical/high + valid coords — keep globe readable and CSS2DObject safe
     const H4 = 4 * 60 * 60 * 1000;
     const recentAlerts = alerts.filter(a =>
       (a.severity === 'critical' || a.severity === 'high') &&
-      (!a.timestamp || (now - new Date(a.timestamp).getTime()) < H4)
+      (!a.timestamp || (now - new Date(a.timestamp).getTime()) < H4) &&
+      isValidCoord(a.lat) && isValidCoord(a.lng)
     );
 
     // ── Rings — impact zones with severity-based pulse ──────────────────────
@@ -356,44 +363,48 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng, onToggleBriefing
         };
       });
 
-    // HTML layer: alert flag pins
-    const htmlElementsData = [
-      // ── Alert markers — flag + type icon pin (colour by category when available)
-      ...recentAlerts.map(a => {
-        const cat = (a as any).category ?? '';
-        const catColor = CAT_PIN_COLORS[cat?.toUpperCase()] ?? null;
-        const color = catColor ?? severityColor(a.severity);
-        const icon = TYPE_ICONS[a.type] || '⚠️';
-        const flagHtml = isoToFlagHtml(a.countryCode || '');
-        const isCritical = a.severity === 'critical';
-        const pinSize = isCritical ? 28 : 22;
-        const glowSize = isCritical ? '0 0 16px' : '0 0 8px';
-        return {
-          lat: Number(a.lat), lng: Number(a.lng),
-          html: `<div
-            data-alert-id="${a.id}"
-            onclick="window.dispatchEvent(new CustomEvent('globe-alert-click',{detail:${a.id}}))"
-            style="
-              display:flex;flex-direction:column;align-items:center;
-              cursor:pointer;pointer-events:auto;user-select:none;
-              ${isCritical ? 'animation:pulse 1s ease-in-out infinite alternate;' : ''}
-            ">
-            <div style="
-              width:${pinSize}px;height:${pinSize}px;border-radius:50%;
-              background:rgba(0,0,0,0.82);
-              border:2px solid ${color};
-              box-shadow:${glowSize} ${color};
-              display:flex;align-items:center;justify-content:center;
-              font-size:${pinSize * 0.52}px;line-height:1;
-            ">${icon}</div>
-            <div style="width:1.5px;height:6px;background:${color};opacity:0.7;"></div>
-            <div>${flagHtml}</div>
-          </div>`,
-          altitude: 0.02,
-          alertId: a.id,
-        };
-      }),
-    ];
+    // HTML layer: alert flag pins — must produce real DOM elements (not strings)
+    // react-globe.gl CSS2DObject expects HTMLElement, not HTML string
+    const htmlElementsData = recentAlerts.map(a => {
+      const cat = (a as any).category ?? '';
+      const catColor = CAT_PIN_COLORS[cat?.toUpperCase()] ?? null;
+      const color = catColor ?? severityColor(a.severity);
+      const icon = TYPE_ICONS[a.type] || '⚠️';
+      const flagHtml = isoToFlagHtml(a.countryCode || '');
+      const isCritical = a.severity === 'critical';
+      const pinSize = isCritical ? 28 : 22;
+      const glowSize = isCritical ? '0 0 16px' : '0 0 8px';
+
+      const el = document.createElement('div');
+      el.setAttribute('data-alert-id', String(a.id));
+      el.style.cssText = `
+        display:flex;flex-direction:column;align-items:center;
+        cursor:pointer;pointer-events:auto;user-select:none;
+        ${isCritical ? 'animation:pulse 1s ease-in-out infinite alternate;' : ''}
+      `;
+      el.innerHTML = `
+        <div style="
+          width:${pinSize}px;height:${pinSize}px;border-radius:50%;
+          background:rgba(0,0,0,0.82);
+          border:2px solid ${color};
+          box-shadow:${glowSize} ${color};
+          display:flex;align-items:center;justify-content:center;
+          font-size:${pinSize * 0.52}px;line-height:1;
+        ">${icon}</div>
+        <div style="width:1.5px;height:6px;background:${color};opacity:0.7;"></div>
+        <div>${flagHtml}</div>
+      `;
+      el.addEventListener('click', () => {
+        window.dispatchEvent(new CustomEvent('globe-alert-click', { detail: a.id }));
+      });
+
+      return {
+        lat: Number(a.lat), lng: Number(a.lng),
+        el,
+        altitude: 0.02,
+        alertId: a.id,
+      };
+    });
 
     return { ringsData, arcsData, htmlElementsData };
   }, [alerts]);
@@ -555,7 +566,7 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng, onToggleBriefing
           arcAltitude="altitude"
 
           htmlElementsData={globeData.htmlElementsData}
-          htmlElement="html"
+          htmlElement={(d: any) => d.el}
           htmlAltitude="altitude"
 
           atmosphereColor="#00F0FF"
