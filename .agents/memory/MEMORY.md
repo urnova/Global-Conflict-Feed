@@ -1,0 +1,5 @@
+- [Argos project overview](argos-overview.md) — ARGOS Intelligence dashboard: fullstack React+Express, react-globe.gl, Groq AI, TTS, multi-category alerts
+- [Adm-zip dependency](argos-overview.md) — adm-zip must be installed as a real npm dep (--save), not --no-save; used by server/services/gdelt.ts
+- [Globe WebGL in Replit](argos-overview.md) — react-globe.gl needs GlobeErrorBoundary class wrapper; Replit screenshot env has no GPU so globe shows fallback, real browsers work fine
+- [CSS @apply opacity restriction](argos-overview.md) — In index.css, @apply bg-white/8 or border-white/8 fails (non-standard opacity); use /5 /10 /20 etc in @apply; arbitrary values only work in TSX JIT
+- [Alert category mapping](argos-overview.md) — 7 categories: MILITAIRE/CATASTROPHE/MÉTÉO/SANTÉ/INFO/POLITIQUE/ALL; normalizeCategory() maps type→category; new feeds use category field directly

@@ -1,63 +1,112 @@
 import express, { type Request, Response, NextFunction } from "express";
+import { createServer } from "http";
+import { WebSocketServer } from "ws";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
-import { createServer } from "http";
+import { fetchGdeltEvents } from "./services/gdelt";
+import { fetchRssAlerts } from "./services/rss";
+import { fetchUcdpEvents } from "./services/ucdp";
+import { fetchUkraineAlerts } from "./services/ukraine-alerts";
+import { refreshAiSummary } from "./services/ai-summary";
+import { registerWss, broadcast } from "./ws";
+import { fetchEarthquakeAlerts } from "./services/usgs-earthquake";
+import { fetchNoaaAlerts, fetchGdacsAlerts, fetchHealthAlerts } from "./services/noaa-weather";
 
 const app = express();
 const httpServer = createServer(app);
 
+// ─── WebSocket server ────────────────────────────────────────────────────────
+const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+registerWss(wss);
+
+wss.on('connection', (ws) => {
+  console.log('[ws] Client connected');
+  ws.on('close', () => console.log('[ws] Client disconnected'));
+  ws.on('error', (err) => console.error('[ws] Error:', err));
+});
+
 declare module "http" {
-  interface IncomingMessage {
-    rawBody: unknown;
-  }
+  interface IncomingMessage { rawBody: unknown; }
 }
 
-app.use(
-  express.json({
-    verify: (req, _res, buf) => {
-      req.rawBody = buf;
-    },
-  }),
-);
+// Capture raw body for /api/chat BEFORE express.json runs (fixes Express 5 + Vite proxy Buffer bug)
+app.use('/api/chat', express.raw({ type: '*/*', limit: '2mb' }), (req: any, _res: any, next: any) => {
+  if (Buffer.isBuffer(req.body)) {
+    try { req.body = JSON.parse(req.body.toString('utf8')); } catch { req.body = {}; }
+  }
+  next();
+});
 
+// Accept any content-type for POST /api requests (some proxies strip application/json header)
+app.use(express.json({
+  type: (req: any) => {
+    const ct = (req.headers['content-type'] ?? '').split(';')[0].trim().toLowerCase();
+    if (ct === 'application/json' || ct === 'text/plain') return true;
+    if (req.method === 'POST' && typeof req.url === 'string' && req.url.startsWith('/api')) return true;
+    return false;
+  },
+  verify: (req: any, _res: any, buf: Buffer) => { req.rawBody = buf; },
+}));
 app.use(express.urlencoded({ extended: false }));
 
 export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-
-  console.log(`${formattedTime} [${source}] ${message}`);
+  const t = new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true });
+  console.log(`${t} [${source}] ${message}`);
 }
 
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  let captured: Record<string, any> | undefined;
 
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
+  const origJson = res.json;
+  res.json = function (body, ...args) {
+    captured = body;
+    return origJson.apply(res, [body, ...args]);
   };
 
   res.on("finish", () => {
-    const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      log(logLine);
+      let line = `${req.method} ${path} ${res.statusCode} in ${Date.now() - start}ms`;
+      if (captured) line += ` :: ${JSON.stringify(captured)}`;
+      log(line);
     }
   });
-
   next();
 });
+
+// ─── GDELT Scheduler (every 15 minutes, aligned to clock) ────────────────────
+function scheduleGdelt() {
+  const msIn15 = 15 * 60 * 1000;
+  const msToNext = msIn15 - (Date.now() % msIn15) + 90_000; // +90s buffer
+
+  log(`GDELT: next fetch in ${Math.round(msToNext / 60000)}m${Math.round((msToNext % 60000) / 1000)}s`, 'gdelt');
+
+  setTimeout(async () => {
+    const count = await fetchGdeltEvents();
+    if (count > 0) {
+      broadcast('gdelt_refresh', { count });
+      log(`GDELT: pushed ${count} new alerts`, 'gdelt');
+    }
+    scheduleGdelt();
+  }, msToNext);
+}
+
+// ─── RSS Scheduler (every 10 minutes) ────────────────────────────────────────
+function scheduleRss() {
+  const INTERVAL = 10 * 60 * 1000;
+  setInterval(async () => {
+    try {
+      const count = await fetchRssAlerts();
+      if (count > 0) {
+        broadcast('rss_refresh', { count });
+        log(`RSS: pushed ${count} new alerts`, 'rss');
+      }
+    } catch (err) {
+      log(`RSS scheduler error: ${err}`, 'rss');
+    }
+  }, INTERVAL);
+}
 
 (async () => {
   await registerRoutes(httpServer, app);
@@ -65,19 +114,11 @@ app.use((req, res, next) => {
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
-    console.error("Internal Server Error:", err);
-
-    if (res.headersSent) {
-      return next(err);
-    }
-
+    console.error("Error:", err);
+    if (res.headersSent) return next(err);
     return res.status(status).json({ message });
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
   if (process.env.NODE_ENV === "production") {
     serveStatic(app);
   } else {
@@ -85,19 +126,128 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
-    () => {
-      log(`serving on port ${port}`);
-    },
-  );
+  httpServer.listen({ port, host: "0.0.0.0", reusePort: true }, () => {
+    log(`serving on port ${port}`);
+
+    // Initial GDELT fetch 30s after startup
+    setTimeout(async () => {
+      log('Running initial GDELT fetch...', 'gdelt');
+      const count = await fetchGdeltEvents();
+      if (count > 0) broadcast('gdelt_refresh', { count });
+      scheduleGdelt();
+    }, 30_000);
+
+    // Initial RSS fetch 60s after startup, then every 10 min
+    setTimeout(async () => {
+      log('Running initial RSS fetch...', 'rss');
+      try {
+        const count = await fetchRssAlerts();
+        if (count > 0) broadcast('rss_refresh', { count });
+      } catch (err) {
+        log(`Initial RSS error: ${err}`, 'rss');
+      }
+      scheduleRss();
+    }, 60_000);
+
+    // UCDP : fetch initial 90s après démarrage, puis toutes les 6h (données quasi-statiques)
+    setTimeout(async () => {
+      log('Running initial UCDP fetch...', 'ucdp');
+      const count = await fetchUcdpEvents();
+      if (count > 0) broadcast('gdelt_refresh', { count });
+      setInterval(async () => {
+        const n = await fetchUcdpEvents();
+        if (n > 0) broadcast('gdelt_refresh', { count: n });
+      }, 6 * 60 * 60 * 1000);
+    }, 90_000);
+
+    // Ukraine Alerts : toutes les 2 minutes (alertes raids aériens en temps réel)
+    setTimeout(async () => {
+      log('Running initial Ukraine Alerts fetch...', 'ua-alerts');
+      const count = await fetchUkraineAlerts();
+      if (count > 0) broadcast('rss_refresh', { count });
+      setInterval(async () => {
+        const n = await fetchUkraineAlerts();
+        if (n > 0) broadcast('rss_refresh', { count: n });
+      }, 2 * 60 * 1000);
+    }, 120_000);
+
+    // ── USGS Earthquakes — toutes les 5 min (feed temps réel) ─────────────────
+    setTimeout(async () => {
+      log('Running initial USGS earthquake fetch...', 'usgs');
+      try {
+        const count = await fetchEarthquakeAlerts();
+        if (count > 0) broadcast('rss_refresh', { count });
+      } catch (e) { log(`USGS error: ${e}`, 'usgs'); }
+      setInterval(async () => {
+        try {
+          const n = await fetchEarthquakeAlerts();
+          if (n > 0) { broadcast('rss_refresh', { count: n }); log(`USGS: ${n} new`, 'usgs'); }
+        } catch (e) { log(`USGS error: ${e}`, 'usgs'); }
+      }, 5 * 60 * 1000);
+    }, 45_000);
+
+    // ── GDACS Disasters — toutes les 30 min ───────────────────────────────────
+    setTimeout(async () => {
+      log('Running initial GDACS fetch...', 'gdacs');
+      try {
+        const count = await fetchGdacsAlerts();
+        if (count > 0) broadcast('rss_refresh', { count });
+      } catch (e) { log(`GDACS error: ${e}`, 'gdacs'); }
+      setInterval(async () => {
+        try {
+          const n = await fetchGdacsAlerts();
+          if (n > 0) { broadcast('rss_refresh', { count: n }); log(`GDACS: ${n} new`, 'gdacs'); }
+        } catch (e) { log(`GDACS error: ${e}`, 'gdacs'); }
+      }, 30 * 60 * 1000);
+    }, 75_000);
+
+    // ── NOAA Weather Alerts — toutes les 15 min ───────────────────────────────
+    setTimeout(async () => {
+      log('Running initial NOAA weather fetch...', 'noaa');
+      try {
+        const count = await fetchNoaaAlerts();
+        if (count > 0) broadcast('rss_refresh', { count });
+      } catch (e) { log(`NOAA error: ${e}`, 'noaa'); }
+      setInterval(async () => {
+        try {
+          const n = await fetchNoaaAlerts();
+          if (n > 0) { broadcast('rss_refresh', { count: n }); log(`NOAA: ${n} new`, 'noaa'); }
+        } catch (e) { log(`NOAA error: ${e}`, 'noaa'); }
+      }, 15 * 60 * 1000);
+    }, 105_000);
+
+    // ── WHO / Health Alerts — toutes les heures ───────────────────────────────
+    setTimeout(async () => {
+      log('Running initial WHO health fetch...', 'health');
+      try {
+        const count = await fetchHealthAlerts();
+        if (count > 0) broadcast('rss_refresh', { count });
+      } catch (e) { log(`WHO error: ${e}`, 'health'); }
+      setInterval(async () => {
+        try {
+          const n = await fetchHealthAlerts();
+          if (n > 0) { broadcast('rss_refresh', { count: n }); log(`WHO: ${n} new`, 'health'); }
+        } catch (e) { log(`WHO error: ${e}`, 'health'); }
+      }, 60 * 60 * 1000);
+    }, 150_000);
+
+    // ── Briefing Argos IA — 1 par heure, persisté en DB, identique pour tous ──
+    // Premier briefing 3 minutes après démarrage (laisser les données s'accumuler)
+    setTimeout(async () => {
+      log('Generating initial Argos IA briefing...', 'briefing');
+      try { await refreshAiSummary(); } catch (e) { log(`Briefing error: ${e}`, 'briefing'); }
+
+      // Puis toutes les heures pile (aligné sur l'horloge)
+      const msToNextHour = (60 - new Date().getMinutes()) * 60_000 - new Date().getSeconds() * 1000;
+      setTimeout(() => {
+        const generate = async () => {
+          log('Generating hourly Argos IA briefing...', 'briefing');
+          try { await refreshAiSummary(); } catch (e) { log(`Briefing error: ${e}`, 'briefing'); }
+        };
+        generate();
+        setInterval(generate, 60 * 60 * 1000);
+      }, msToNextHour);
+    }, 3 * 60_000);
+  });
 })();

@@ -1,97 +1,101 @@
-import { ReactNode } from "react";
-import { Activity, ShieldAlert, Radio, Database, Search } from "lucide-react";
-import { LiveIndicator } from "./live-indicator";
+import { Link, useLocation } from "wouter";
+import { Globe, History, BookOpen, Activity, AlertTriangle, Loader2, Radio, Tv } from "lucide-react";
+import { clsx } from "clsx";
+import { useLanguage } from "@/contexts/language-context";
+import { useServerStatus } from "@/hooks/use-server-status";
+import { useAlerts } from "@/hooks/use-alerts";
+import { BreakingTicker } from "@/components/breaking-ticker";
 
-interface LayoutProps {
-  children: ReactNode;
-  isConnected: boolean;
-  totalEvents: number;
-}
+export function AppLayout({ children }: { children: React.ReactNode; }) {
+  const [location] = useLocation();
+  const { t } = useLanguage();
+  const serverStatus = useServerStatus();
+  const { data: alerts } = useAlerts();
 
-export function Layout({ children, isConnected, totalEvents }: LayoutProps) {
+  const navItems = [
+    { href: "/", icon: Globe, label: t.nav.live },
+    { href: "/history", icon: History, label: t.nav.history },
+    { href: "/live", icon: Tv, label: t.nav.liveview },
+    { href: "/radio", icon: Radio, label: t.nav.radio },
+    { href: "/guide", icon: BookOpen, label: t.nav.guide },
+  ];
+
   return (
-    <div className="min-h-screen bg-background flex flex-col md:flex-row">
-      {/* Sidebar - Hidden on mobile, visible on md+ */}
-      <aside className="hidden md:flex flex-col w-64 border-r border-border/60 bg-card/30 backdrop-blur-xl sticky top-0 h-screen p-4">
-        <div className="flex items-center gap-3 mb-8 px-2">
-          <div className="h-8 w-8 rounded bg-primary/20 flex items-center justify-center border border-primary/30">
-            <ShieldAlert className="w-4 h-4 text-primary" />
-          </div>
-          <div>
-            <h1 className="font-bold text-sm tracking-widest text-foreground">NEXUS</h1>
-            <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">Global Intel Feed</p>
+    <div className="flex flex-col h-screen w-full overflow-hidden bg-background">
+      {/* ── Top Navigation Bar ── */}
+      <header className="shrink-0 h-10 bg-black/95 border-b border-white/10 backdrop-blur-xl z-50 relative flex items-center px-4">
+        {/* Logo + branding — left */}
+        <div className="flex items-center gap-2 shrink-0">
+          <img src="/argos.svg" alt="ARGOS" className="h-6 w-auto" />
+          <div className="hidden md:flex flex-col leading-none">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-black font-mono text-white/80 uppercase tracking-widest">Argos Intelligence</span>
+              <span className="text-[7px] font-black font-mono px-1 py-0.5 rounded" style={{ background: 'rgba(0,240,255,0.15)', color: '#00F0FF', border: '1px solid rgba(0,240,255,0.3)' }}>V6</span>
+            </div>
+            <span className="text-[7px] font-mono text-muted-foreground/40 uppercase tracking-widest">by Astral Security</span>
           </div>
         </div>
 
-        <nav className="flex-1 space-y-6">
-          <div className="space-y-2">
-            <h2 className="text-xs font-mono text-muted-foreground px-2 uppercase tracking-widest">System Status</h2>
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between px-2 py-2 rounded-lg bg-secondary/30 border border-transparent">
-                <span className="text-sm font-medium text-foreground/80 flex items-center gap-2">
-                  <Radio className="w-4 h-4 text-muted-foreground" /> Connection
+        {/* Nav items — absolutely centered in header */}
+        <nav className="absolute inset-0 flex items-center justify-center gap-1 pointer-events-none">
+          {navItems.map((item) => {
+            const isActive = location === item.href;
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={clsx(
+                  "pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200 group relative",
+                  isActive
+                    ? "bg-primary/10 text-primary border border-primary/30 shadow-[0_0_10px_rgba(0,240,255,0.1)]"
+                    : "text-muted-foreground/60 hover:text-foreground hover:bg-white/5 border border-transparent"
+                )}
+              >
+                <Icon className={clsx("w-3.5 h-3.5 shrink-0 transition-opacity", isActive ? "text-primary" : "opacity-50 group-hover:opacity-100")} />
+                <span className={clsx("text-[11px] font-medium tracking-wide transition-opacity", isActive ? "" : "opacity-60 group-hover:opacity-100")}>
+                  {item.label}
                 </span>
-                <LiveIndicator active={isConnected} label="SYNCED" />
-              </div>
-              <div className="flex items-center justify-between px-2 py-2 rounded-lg bg-secondary/30 border border-transparent">
-                <span className="text-sm font-medium text-foreground/80 flex items-center gap-2">
-                  <Database className="w-4 h-4 text-muted-foreground" /> Monitored Events
-                </span>
-                <span className="text-xs font-mono font-medium">{totalEvents}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <h2 className="text-xs font-mono text-muted-foreground px-2 uppercase tracking-widest">Filters</h2>
-            <div className="px-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
-                <input 
-                  type="text" 
-                  placeholder="Filter events..." 
-                  className="w-full bg-background border border-border rounded-md pl-9 pr-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary transition-all"
-                  disabled
-                />
-              </div>
-            </div>
-          </div>
+                {isActive && (
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-primary rounded-full shadow-[0_0_6px_rgba(0,240,255,0.8)]" />
+                )}
+              </Link>
+            );
+          })}
         </nav>
 
-        <div className="mt-auto border-t border-border/50 pt-4 px-2">
-          <p className="text-[10px] font-mono text-muted-foreground leading-relaxed">
-            Data sourced in real-time from automated scrapers and API integrations.
-            Classified as UNRESTRICTED.
-          </p>
+        {/* Right — system status */}
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          {/* System status */}
+          <div className="flex items-center gap-1.5">
+            {serverStatus === 'ok' && (
+              <>
+                <Activity className="w-3 h-3 text-emerald-500 animate-pulse" />
+                <span className="text-[9px] font-mono text-emerald-500 uppercase tracking-widest hidden lg:block">{t.nav.systemActive}</span>
+              </>
+            )}
+            {serverStatus === 'connecting' && (
+              <>
+                <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />
+                <span className="text-[9px] font-mono text-amber-400 uppercase tracking-widest hidden lg:block">{t.nav.systemConnecting}</span>
+              </>
+            )}
+            {serverStatus === 'error' && (
+              <>
+                <AlertTriangle className="w-3 h-3 text-destructive" />
+                <span className="text-[9px] font-mono text-destructive uppercase tracking-widest hidden lg:block">{t.nav.systemError}</span>
+              </>
+            )}
+          </div>
         </div>
-      </aside>
+      </header>
+
+      {/* Breaking news ticker — visible sur toutes les pages */}
+      <BreakingTicker alerts={alerts ?? []} />
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-h-screen relative">
-        {/* Mobile Header */}
-        <header className="md:hidden flex items-center justify-between p-4 border-b border-border/60 bg-background/80 backdrop-blur-md sticky top-0 z-50">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-primary" />
-            <h1 className="font-bold text-sm tracking-widest text-foreground">NEXUS</h1>
-          </div>
-          <LiveIndicator active={isConnected} />
-        </header>
-
-        {/* Top Gradient Fade (Desktop) */}
-        <div className="hidden md:block absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none" />
-
-        <div className="flex-1 p-4 md:p-8 overflow-x-hidden max-w-4xl mx-auto w-full">
-          <div className="mb-6 flex items-end justify-between">
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight mb-1 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-primary" />
-                Live Feed
-              </h2>
-              <p className="text-sm text-muted-foreground font-mono">Real-time global event monitoring</p>
-            </div>
-          </div>
-          {children}
-        </div>
+      <main className="flex-1 relative overflow-hidden flex flex-col">
+        {children}
       </main>
     </div>
   );

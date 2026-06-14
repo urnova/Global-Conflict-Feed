@@ -1,8 +1,13 @@
 ## Packages
-date-fns | Used for formatting relative timestamps (e.g., "2 minutes ago") in the live feed
-framer-motion | Used for layout animations so new news items smoothly push older items down
+react-globe.gl | 3D interactive globe visualization
+three | Peer dependency for react-globe.gl
+date-fns | Date formatting for alerts history
+clsx | Utility for constructing className strings conditionally
+tailwind-merge | Utility for merging tailwind classes
 
 ## Notes
-- The application forces a dark "intelligence/terminal" aesthetic.
-- The `use-news` hook connects to the `/ws` endpoint automatically to listen for live updates.
-- Real-time updates optimistically update the TanStack Query cache.
+The application features a real-time 3D globe. 
+Alerts are polled every 3 seconds to update the UI and globe automatically.
+Missiles are rendered as arcs (using a simulated origin offset for visual effect).
+Conflicts are rendered as expanding rings.
+Warnings are rendered as glowing points.

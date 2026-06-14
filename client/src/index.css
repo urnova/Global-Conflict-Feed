@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,85 +6,222 @@
 
 @layer base {
   :root {
-    /* Forcing a deep dark terminal/intelligence aesthetic globally */
-    --background: 240 10% 4%;
-    --foreground: 0 0% 98%;
+    --font-sans: 'Space Grotesk', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
 
-    --card: 240 10% 6%;
-    --card-foreground: 0 0% 98%;
+    /* ── ARGOS Dark Ops Theme — V7 ───────────────────────── */
+    --background: 224 20% 4%;
+    --foreground: 210 40% 96%;
 
-    --popover: 240 10% 6%;
-    --popover-foreground: 0 0% 98%;
+    --card: 224 18% 7%;
+    --card-foreground: 210 40% 96%;
+    --card-border: rgba(255,255,255,0.06);
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
+    --popover: 224 20% 6%;
+    --popover-foreground: 210 40% 96%;
+    --popover-border: rgba(255,255,255,0.08);
 
-    --secondary: 240 10% 12%;
-    --secondary-foreground: 0 0% 98%;
+    --primary: 188 100% 50%;          /* Cyan — signal principal */
+    --primary-foreground: 224 20% 4%;
+    --primary-border: rgba(0,240,255,0.3);
 
-    --muted: 240 10% 12%;
-    --muted-foreground: 240 5% 65%;
+    --secondary: 224 18% 12%;
+    --secondary-foreground: 210 40% 80%;
+    --secondary-border: rgba(255,255,255,0.08);
 
-    --accent: 240 10% 16%;
-    --accent-foreground: 0 0% 98%;
+    --muted: 224 18% 11%;
+    --muted-foreground: 215 16% 48%;
+    --muted-border: rgba(255,255,255,0.05);
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
+    --accent: 270 90% 58%;            /* Purple — accent */
+    --accent-foreground: 210 40% 96%;
+    --accent-border: rgba(160,80,255,0.3);
 
-    --border: 240 10% 14%;
-    --input: 240 10% 14%;
-    --ring: 217 91% 60%;
+    --destructive: 350 100% 50%;      /* Neon Red — critique */
+    --destructive-foreground: 210 40% 96%;
+    --destructive-border: rgba(255,0,60,0.3);
+
+    --warning: 42 100% 52%;           /* Amber — high */
+    --warning-foreground: 224 20% 4%;
+
+    --border: 224 18% 11%;
+    --input: 224 18% 11%;
+    --ring: 188 100% 50%;
 
     --radius: 0.5rem;
 
-    --font-sans: 'Plus Jakarta Sans', sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+    /* Category colors */
+    --cat-military:  #FF003C;
+    --cat-disaster:  #FF6B00;
+    --cat-weather:   #3B9EFF;
+    --cat-health:    #00D68F;
+    --cat-info:      #44AAFF;
+    --cat-political: #AA00FF;
   }
-}
 
-@layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-border; }
+
+  html { scroll-behavior: smooth; }
+
   body {
-    @apply bg-background text-foreground font-sans antialiased selection:bg-primary/30 selection:text-primary-foreground;
-    /* Custom scrollbar for a sleeker look */
-    scrollbar-width: thin;
-    scrollbar-color: hsl(var(--border)) transparent;
+    @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-primary;
+    font-family: var(--font-sans);
+    /* Multi-layer ambient glow — ops center look */
+    background-image:
+      radial-gradient(ellipse 120% 60% at 50% -10%, hsla(188,100%,50%,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 80% 40% at 100% 80%, hsla(270,90%,58%,0.04) 0%, transparent 50%),
+      radial-gradient(ellipse 60% 30% at 0% 60%, hsla(350,100%,50%,0.03) 0%, transparent 50%);
+    background-attachment: fixed;
   }
-  
-  ::-webkit-scrollbar {
-    width: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
-    border-radius: 10px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground));
-  }
+
+  h1, h2, h3, h4, h5, h6 { @apply font-bold tracking-tight; }
+  code, pre { font-family: var(--font-mono); }
 }
 
 @layer utilities {
+  /* ─── Glass panels ─────────────────────────────────────── */
   .glass-panel {
-    @apply bg-card/60 backdrop-blur-xl border border-border/50 shadow-2xl;
+    @apply bg-background/60 backdrop-blur-2xl border border-white/10 shadow-[0_8px_40px_rgba(0,0,0,0.6)];
   }
-  
-  .glow-breaking {
-    box-shadow: 0 0 20px -5px hsl(var(--destructive) / 0.3);
+
+  .glass-card {
+    @apply bg-card/80 backdrop-blur-md border border-white/5 hover:border-primary/30 transition-all duration-300;
   }
+
+  /* ─── Frosted sidebar / panel variant ─────────────────── */
+  .glass-sidebar {
+    background: rgba(8,10,16,0.72);
+    backdrop-filter: blur(24px) saturate(1.3);
+    border-right: 1px solid rgba(255,255,255,0.06);
+  }
+
+  /* ─── Text glows ───────────────────────────────────────── */
+  .text-glow-primary      { text-shadow: 0 0 14px hsla(188,100%,50%,0.65), 0 0 30px hsla(188,100%,50%,0.2); }
+  .text-glow-destructive  { text-shadow: 0 0 14px hsla(350,100%,50%,0.75), 0 0 30px hsla(350,100%,50%,0.2); }
+  .text-glow-warning      { text-shadow: 0 0 12px hsla(42,100%,52%,0.65); }
+
+  /* ─── Box glows ────────────────────────────────────────── */
+  .box-glow-primary     { box-shadow: 0 0 18px hsla(188,100%,50%,0.22), inset 0 0 12px hsla(188,100%,50%,0.08); }
+  .box-glow-destructive { box-shadow: 0 0 22px hsla(350,100%,50%,0.30), inset 0 0 12px hsla(350,100%,50%,0.08); }
+
+  /* ─── Category glow accents ────────────────────────────── */
+  .glow-disaster { box-shadow: 0 0 16px rgba(255,107,0,0.35); }
+  .glow-weather  { box-shadow: 0 0 16px rgba(59,158,255,0.35); }
+  .glow-health   { box-shadow: 0 0 16px rgba(0,214,143,0.35); }
+
+  /* ─── Custom Scrollbar ─────────────────────────────────── */
+  ::-webkit-scrollbar       { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-white/10 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-primary/40; }
+
+  /* ─── Dot-grid background overlay ─────────────────────── */
+  .dot-grid-bg {
+    background-image: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* ─── Noise texture overlay ────────────────────────────── */
+  .noise-overlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    opacity: 0.025;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── HUD corner brackets ──────────────────────────────── */
+  .hud-corner {
+    position: relative;
+  }
+  .hud-corner::before, .hud-corner::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-color: hsla(188,100%,50%,0.5);
+    border-style: solid;
+  }
+  .hud-corner::before { top: 0; left: 0; border-width: 1.5px 0 0 1.5px; }
+  .hud-corner::after  { bottom: 0; right: 0; border-width: 0 1.5px 1.5px 0; }
 }
 
-/* Base Animations */
-@keyframes pulse-ring {
-  0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
-  100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+/* ─── Scanline Effect ─────────────────────────────────────── */
+@keyframes scanline {
+  0%   { transform: translateY(-100vh); }
+  100% { transform: translateY(100vh); }
 }
 
-.animate-pulse-ring {
-  animation: pulse-ring 2s infinite;
+.scanline-effect::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  background: linear-gradient(to bottom, transparent, hsla(188,100%,50%,0.08), transparent);
+  height: 40px;
+  animation: scanline 10s linear infinite;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.4;
+}
+
+/* ─── Slow spin animation ────────────────────────────────── */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.animate-spin-slow { animation: spin-slow 4s linear infinite; }
+
+/* ─── Globe tooltip ──────────────────────────────────────── */
+.globe-tooltip {
+  background: rgba(0,0,0,0.85);
+  border: 1px solid rgba(0,240,255,0.3);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #00F0FF;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+
+/* ─── New-alert flash ────────────────────────────────────── */
+@keyframes flash-border {
+  0%, 100% { border-color: transparent; }
+  25%, 75%  { border-color: hsla(var(--primary)/0.8); box-shadow: 0 0 20px hsla(var(--primary)/0.3); }
+}
+.animate-pulse-once {
+  animation: flash-border 2s ease-in-out 1;
+}
+
+/* ─── Typing cursor ──────────────────────────────────────── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+.cursor-blink::after {
+  content: '|';
+  animation: blink 1s step-end infinite;
+  margin-left: 1px;
+}
+
+/* ─── Select option override ─────────────────────────────── */
+select option {
+  background: hsl(228 15% 8%);
+  color: hsl(210 40% 98%);
+}
+
+/* ─── Breaking news ticker ───────────────────────────────────────────────── */
+@keyframes ticker-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-track {
+  display: inline-flex;
+  animation: ticker-scroll 60s linear infinite;
+  will-change: transform;
+}
+.ticker-track:hover {
+  animation-play-state: paused;
 }
