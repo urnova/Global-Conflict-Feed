@@ -4,88 +4,60 @@ import { GlobeView } from "@/components/globe-view";
 import { AlertFeed } from "@/components/alert-feed";
 import { CountryTensionPanel } from "@/components/country-tension-panel";
 import { AiSummaryPanel } from "@/components/ai-summary-panel";
+import { LoadingScreen } from "@/components/loading-screen";
+import { CriticalAlertOverlay } from "@/components/critical-alert-overlay";
 import { MobileDashboard } from "@/components/mobile-dashboard";
-import { TabletDashboard } from "@/components/tablet-dashboard";
-import { TVDashboard } from "@/components/tv-dashboard";
-import { Activity, Clock, Radio, Hash, Satellite, AlertTriangle, Loader2, Brain, MessageSquare } from "lucide-react";
 import { useAlerts } from "@/hooks/use-alerts";
 import { useServerStatus } from "@/hooks/use-server-status";
 import { useDeviceType } from "@/hooks/use-mobile";
-import { LoadingScreen } from "@/components/loading-screen";
-import { CriticalAlertOverlay } from "@/components/critical-alert-overlay";
+import {
+  Activity, Clock, Brain, Map, List, ChevronLeft, ChevronRight,
+  Loader2, AlertTriangle, WifiOff, LayoutPanelLeft, MessageSquare
+} from "lucide-react";
+import { clsx } from "clsx";
 import type { Alert } from "@shared/schema";
+import { AiChat } from "@/components/ai-chat";
 
-// ── Top Keywords widget ────────────────────────────────────────────────────────
-const STOP_WORDS = new Set([
-  'the','a','an','in','on','at','to','for','of','and','or','is','are','was',
-  'were','has','have','had','de','la','le','les','du','des','un','une','sur',
-  'en','à','et','ou','il','elle','par','avec','pour','dans','qui','que','se',
-  'ne','pas','au','aux','ce','cette','ces','son','sa','ses','leur','leurs',
-  'after','over','amid','from','into','says','report','reports','killed','dead',
-  'near','with','that','this','its','into','have','been',
-]);
+export default function Dashboard() {
+  const device = useDeviceType();
+  if (device === "mobile" || device === "tablet") return <MobileDashboard />;
+  return <DesktopDashboard />;
+}
 
-function TopKeywords({ alerts }: { alerts: Alert[] }) {
-  const H24 = 24 * 60 * 60 * 1000;
-  const wordCount: Record<string, number> = {};
-  for (const a of alerts) {
-    const ref = a.timestamp;
-    if (ref && Date.now() - new Date(ref).getTime() > H24) continue;
-    const words = a.title
-      .toLowerCase()
-      .split(/[\s\-—·,.:!?()\[\]"']+/)
-      .filter(w => w.length > 3 && !STOP_WORDS.has(w));
-    for (const w of words) wordCount[w] = (wordCount[w] ?? 0) + 1;
-  }
-  const top = Object.entries(wordCount).sort((a, b) => b[1] - a[1]).slice(0, 6);
-  if (top.length === 0) return null;
-
+// ── HUD stat chip ──────────────────────────────────────────────────────────────
+function StatChip({ label, value, color, pulse }: { label: string; value: number | string; color: string; pulse?: boolean }) {
   return (
-    <div className="glass-card rounded-xl border border-white/10 p-3 w-44 backdrop-blur-xl bg-black/60">
-      <div className="flex items-center gap-1.5 mb-2">
-        <Hash className="w-3 h-3 text-primary/60" />
-        <span className="text-[9px] font-bold uppercase tracking-widest text-primary/60">Tendances 24h</span>
+    <div className="flex flex-col items-center px-3">
+      <div className="flex items-center gap-1">
+        <span className="text-xs font-black tabular-nums" style={{ color }}>{value}</span>
+        {pulse && value > 0 && (
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: color }} />
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: color }} />
+          </span>
+        )}
       </div>
-      <div className="space-y-1">
-        {top.map(([word, count], i) => (
-          <div key={word} className="flex items-center justify-between text-[9px] font-mono">
-            <span className="text-muted-foreground/60">
-              <span className="text-primary/30 mr-1">#{i + 1}</span>
-              {word.charAt(0).toUpperCase() + word.slice(1)}
-            </span>
-            <span className="text-primary/70 font-bold">{count}</span>
-          </div>
-        ))}
-      </div>
+      <span className="text-[7px] font-mono uppercase tracking-wider text-white/25 mt-px">{label}</span>
     </div>
   );
 }
 
-// ── Router: picks the right layout based on device ────────────────────────────
-export default function Dashboard() {
-  const device = useDeviceType();
-  if (device === 'mobile') return <MobileDashboard />;
-  if (device === 'tablet') return <TabletDashboard />;
-  if (device === 'tv') return <TVDashboard />;
-  return <DesktopDashboard />;
-}
-
-// ── Desktop dashboard ─────────────────────────────────────────────────────────
+// ── Desktop ────────────────────────────────────────────────────────────────────
 function DesktopDashboard() {
   const { data: alerts } = useAlerts();
   const serverStatus = useServerStatus();
-  const [isLoading, setIsLoading] = useState(() => {
-    if (typeof sessionStorage === 'undefined') return true;
-    return !sessionStorage.getItem('amc_loaded');
-  });
+
+  const [isLoading, setIsLoading] = useState(() =>
+    typeof sessionStorage === "undefined" ? true : !sessionStorage.getItem("argos_v7_loaded")
+  );
   const [time, setTime] = useState(new Date());
   const [focusCountry, setFocusCountry] = useState<{ code: string; lat?: number; lng?: number } | undefined>();
 
-  // Panel visibility toggles
+  // Panel visibility
   const [showTensions, setShowTensions] = useState(true);
   const [showFeed, setShowFeed] = useState(true);
-  const [showAiSummary, setShowAiSummary] = useState(true);
-  const [briefingCollapsed, setBriefingCollapsed] = useState(false);
+  const [showBriefing, setShowBriefing] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
@@ -96,179 +68,228 @@ function DesktopDashboard() {
     setFocusCountry({ code, lat, lng });
   }, []);
 
-  // Stats — fenêtre 48h sur timestamp d'insertion
   const H48 = 48 * 60 * 60 * 1000;
-  const recentAlerts = (alerts ?? []).filter(a =>
-    !a.timestamp || (Date.now() - new Date(a.timestamp).getTime()) < H48
-  );
-  const criticalCount = recentAlerts.filter(a => a.severity === 'critical').length;
-  const highCount = recentAlerts.filter(a => a.severity === 'high').length;
+  const recentAlerts = (alerts ?? []).filter(a => !a.timestamp || (Date.now() - new Date(a.timestamp).getTime()) < H48);
+  const criticalCount = recentAlerts.filter(a => a.severity === "critical").length;
+  const highCount = recentAlerts.filter(a => a.severity === "high").length;
   const countryCount = new Set(recentAlerts.map(a => a.countryCode).filter(Boolean)).size;
 
-  const timeStr = time.toLocaleTimeString('fr-FR', {
-    timeZone: 'Europe/Paris',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-  }) + ' Paris';
+  const timeStr = time.toLocaleTimeString("fr-FR", {
+    timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  });
 
   return (
     <>
-      {isLoading && <LoadingScreen onComplete={() => {
-        sessionStorage.setItem('amc_loaded', '1');
-        setIsLoading(false);
-      }} />}
+      {isLoading && (
+        <LoadingScreen onComplete={() => {
+          sessionStorage.setItem("argos_v7_loaded", "1");
+          setIsLoading(false);
+        }} />
+      )}
       <CriticalAlertOverlay alerts={alerts ?? []} />
 
       <AppLayout>
-        <div className="flex flex-col h-full overflow-hidden bg-black">
+        <div className="flex h-full overflow-hidden bg-background">
 
-          {/* 3-column layout */}
-          <div className="flex flex-1 overflow-hidden relative">
-
-            {/* LEFT — Country Tension Panel */}
+          {/* ── LEFT — Tension panel (collapsible) ───────────────────────── */}
+          <div className={clsx("h-full relative z-20 flex transition-all duration-300",
+            showTensions ? "w-52" : "w-0")} style={{ overflow: showTensions ? "visible" : "hidden" }}>
             {showTensions && (
-              <div className="hidden lg:block h-full relative z-30 shadow-[0_0_50px_rgba(0,0,0,0.6)]">
-                <CountryTensionPanel onCountryClick={handleCountryFocus} />
-              </div>
+              <CountryTensionPanel onCountryClick={handleCountryFocus} onHide={() => setShowTensions(false)} />
             )}
+          </div>
 
-            {/* CENTER — Globe */}
-            <div className="relative flex-1">
-              <GlobeView
-                focusCountryCode={focusCountry?.code}
-                focusLat={focusCountry?.lat}
-                focusLng={focusCountry?.lng}
-                onToggleBriefing={() => setShowAiSummary(p => !p)}
-                showBriefing={showAiSummary}
-                onToggleTensions={() => setShowTensions(p => !p)}
-                showTensions={showTensions}
-                onToggleFeed={() => setShowFeed(p => !p)}
-                showFeed={showFeed}
-              />
+          {/* Toggle left panel */}
+          <button
+            onClick={() => setShowTensions(p => !p)}
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-30 h-12 w-4 flex items-center justify-center rounded-r-lg transition-all"
+            style={{
+              background: "rgba(0,245,255,0.08)",
+              border: "1px solid rgba(0,245,255,0.15)",
+              borderLeft: "none",
+              marginLeft: showTensions ? 208 : 0,
+            }}
+            title={showTensions ? "Masquer tensions" : "Afficher tensions"}>
+            {showTensions
+              ? <ChevronLeft className="w-2.5 h-2.5 text-[#00F5FF]/50" />
+              : <ChevronRight className="w-2.5 h-2.5 text-[#00F5FF]/50" />}
+          </button>
 
-              {/* Top HUD bar — stats */}
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2">
-                <div className="glass-card px-4 py-2 rounded-2xl flex items-center gap-3 border border-white/10 backdrop-blur-xl shadow-[0_0_30px_rgba(0,240,255,0.06)]">
-                  <div className="flex items-center gap-1.5">
-                    {serverStatus === 'ok' && <Activity className="w-3.5 h-3.5 text-primary animate-pulse" />}
-                    {serverStatus === 'connecting' && <Loader2 className="w-3.5 h-3.5 text-amber-400 animate-spin" />}
-                    {serverStatus === 'error' && <AlertTriangle className="w-3.5 h-3.5 text-destructive" />}
-                    <div>
-                      <div className="text-[8px] font-mono text-muted-foreground uppercase tracking-widest">Statut</div>
-                      <div className={`text-[10px] font-bold tracking-widest uppercase ${
-                        serverStatus === 'ok' ? 'text-primary' :
-                        serverStatus === 'connecting' ? 'text-amber-400' :
-                        'text-destructive'
-                      }`}>
-                        {serverStatus === 'ok' ? 'Surveillance active' :
-                         serverStatus === 'connecting' ? 'Connexion…' :
-                         'Erreur serveur'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="w-px h-6 bg-white/10" />
-                  <div>
-                    <div className="text-[8px] font-mono text-muted-foreground uppercase tracking-widest">Critiques</div>
-                    <div className="text-xs font-bold text-destructive flex items-center gap-1">
-                      {criticalCount}
-                      {criticalCount > 0 && (
-                        <span className="relative flex h-1.5 w-1.5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
-                          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-destructive" />
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="w-px h-6 bg-white/10" />
-                  <div>
-                    <div className="text-[8px] font-mono text-muted-foreground uppercase tracking-widest">Élevés</div>
-                    <div className="text-xs font-bold text-warning">{highCount}</div>
-                  </div>
-                  <div className="w-px h-6 bg-white/10" />
-                  <div>
-                    <div className="text-[8px] font-mono text-muted-foreground uppercase tracking-widest">Pays</div>
-                    <div className="text-xs font-bold text-primary">{countryCount}</div>
-                  </div>
+          {/* ── CENTER — Globe + overlays ─────────────────────────────────── */}
+          <div className="relative flex-1 min-w-0">
+            <GlobeView
+              focusCountryCode={focusCountry?.code}
+              focusLat={focusCountry?.lat}
+              focusLng={focusCountry?.lng}
+              onToggleBriefing={() => setShowBriefing(p => !p)}
+              showBriefing={showBriefing}
+              onToggleTensions={() => setShowTensions(p => !p)}
+              showTensions={showTensions}
+              onToggleFeed={() => setShowFeed(p => !p)}
+              showFeed={showFeed}
+            />
+
+            {/* HUD top-center — stats bar */}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+              <div className="hud-bracket flex items-center gap-0 rounded-2xl px-2 py-1.5"
+                style={{
+                  background: "rgba(4,6,12,0.82)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  backdropFilter: "blur(16px)",
+                  boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
+                }}>
+                {/* Status indicator */}
+                <div className="flex items-center gap-1.5 px-3">
+                  {serverStatus === "ok" && <span className="live-dot live-dot-cyan" style={{ width: 6, height: 6 }} />}
+                  {serverStatus === "connecting" && <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />}
+                  {serverStatus === "error" && <WifiOff className="w-3 h-3 text-red-500" />}
+                  <span className={clsx("text-[8.5px] font-mono uppercase tracking-wider",
+                    serverStatus === "ok" ? "text-[#00F5FF]" : serverStatus === "connecting" ? "text-amber-400" : "text-red-500")}>
+                    {serverStatus === "ok" ? "Surveillance active" : serverStatus === "connecting" ? "Connexion…" : "Hors ligne"}
+                  </span>
                 </div>
-              </div>
 
-              {/* Top-right — Clock + sources */}
-              <div className="absolute top-3 right-3 z-20 glass-card px-3 py-2 rounded-xl border border-white/10 text-right">
-                <div className="flex items-center gap-2 text-[10px] font-mono text-primary">
+                <div className="w-px h-5 mx-1" style={{ background: "rgba(255,255,255,0.07)" }} />
+                <StatChip label="Critiques" value={criticalCount} color="#FF1A3E" pulse />
+                <div className="w-px h-5 mx-1" style={{ background: "rgba(255,255,255,0.07)" }} />
+                <StatChip label="Élevés" value={highCount} color="#FFB800" />
+                <div className="w-px h-5 mx-1" style={{ background: "rgba(255,255,255,0.07)" }} />
+                <StatChip label="Pays" value={countryCount} color="#00F5FF" />
+                <div className="w-px h-5 mx-1" style={{ background: "rgba(255,255,255,0.07)" }} />
+                <StatChip label="Total 48h" value={recentAlerts.length} color="rgba(255,255,255,0.5)" />
+              </div>
+            </div>
+
+            {/* HUD top-right — clock + sources */}
+            <div className="absolute top-3 right-3 z-20 pointer-events-none">
+              <div className="rounded-xl px-3 py-2 text-right"
+                style={{ background: "rgba(4,6,12,0.82)", border: "1px solid rgba(255,255,255,0.07)", backdropFilter: "blur(16px)" }}>
+                <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#00F5FF] justify-end">
                   <Clock className="w-3 h-3" />
-                  <span>{timeStr}</span>
+                  <span>{timeStr} <span className="text-white/30 text-[8px]">Paris</span></span>
                 </div>
-                <div className="flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground mt-0.5 justify-end flex-wrap">
-                  <Radio className="w-2.5 h-2.5 text-amber-400" />
-                  <span className="text-amber-400">RSS</span>
-                  <span className="text-muted-foreground/40">·</span>
-                  <Satellite className="w-2.5 h-2.5 text-orange-400" />
-                  <span className="text-orange-400">FIRMS</span>
-                  <span className="text-muted-foreground/40">·</span>
-                  <MessageSquare className="w-2.5 h-2.5 text-sky-400" />
-                  <span className="text-sky-400">OSINT</span>
-                  <span className="text-muted-foreground/40">·</span>
-                  <Brain className="w-2.5 h-2.5 text-violet-400" />
-                  <span className="text-violet-400">IA</span>
-                </div>
-              </div>
-
-              {/* Top-left — Tendances 24h */}
-              <div className="absolute top-3 left-3 z-20 pointer-events-none">
-                <TopKeywords alerts={alerts ?? []} />
-              </div>
-
-              {/* Floating Briefing column — right side of globe */}
-              {showAiSummary && (
-                <div
-                  className="absolute top-20 right-3 z-20 w-72 hidden lg:flex flex-col"
-                  style={{ maxHeight: 'calc(100% - 6rem)' }}
-                >
-                  <div className="flex flex-col overflow-hidden rounded-xl border border-primary/20 bg-black/90 backdrop-blur-xl shadow-lg h-full">
-                    <div className="shrink-0 flex items-center justify-between px-3 py-2 border-b border-white/10">
-                      <div className="flex items-center gap-1.5">
-                        <Brain className="w-3 h-3 text-primary/60" />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-primary">Briefing Stratégique</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setBriefingCollapsed(p => !p)}
-                          className="text-[8px] font-mono text-white/30 hover:text-white/60 px-1.5 py-0.5 rounded border border-white/8 hover:border-white/20 transition-all"
-                        >
-                          {briefingCollapsed ? '▼' : '▲'}
-                        </button>
-                        <button
-                          onClick={() => setShowAiSummary(false)}
-                          className="text-white/20 hover:text-white/60 px-1 transition-colors text-xs"
-                        >✕</button>
-                      </div>
-                    </div>
-                    {!briefingCollapsed && (
-                      <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                        <AiSummaryPanel headless={true} />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Bottom hint */}
-              <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-                <div className="text-[9px] font-mono text-muted-foreground/20 text-center">
-                  CLIQUER SUR UN PAYS · CLIQUER SUR UN POINT · PANEL GAUCHE = TENSIONS
+                <div className="flex items-center gap-1.5 mt-1 justify-end flex-wrap">
+                  {[
+                    { label: "GDELT",  color: "#FF6B00" },
+                    { label: "NASA",   color: "#FF8800" },
+                    { label: "USGS",   color: "#FFAA00" },
+                    { label: "RSS",    color: "#FFB800" },
+                    { label: "IA",     color: "#AA44FF" },
+                  ].map(s => (
+                    <span key={s.label} className="text-[7px] font-mono font-bold"
+                      style={{ color: s.color }}>{s.label}</span>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* RIGHT — AlertFeed always */}
-            {showFeed && (
-              <div className="hidden md:flex flex-col h-full relative z-30 shadow-[0_0_50px_rgba(0,0,0,0.5)] border-l border-white/10" style={{ width: 340 }}>
-                <AlertFeed />
+            {/* Floating action buttons — bottom left of globe */}
+            <div className="absolute bottom-8 left-4 z-20 flex flex-col gap-1.5 pointer-events-auto">
+              <FabButton
+                active={showBriefing}
+                onClick={() => setShowBriefing(p => !p)}
+                icon={<Brain className="w-3.5 h-3.5" />}
+                label="Briefing IA"
+              />
+              <FabButton
+                active={showChat}
+                onClick={() => setShowChat(p => !p)}
+                icon={<MessageSquare className="w-3.5 h-3.5" />}
+                label="Analyste IA"
+              />
+              <FabButton
+                active={showTensions}
+                onClick={() => setShowTensions(p => !p)}
+                icon={<Map className="w-3.5 h-3.5" />}
+                label="Tensions"
+              />
+              <FabButton
+                active={showFeed}
+                onClick={() => setShowFeed(p => !p)}
+                icon={<List className="w-3.5 h-3.5" />}
+                label="Flux alertes"
+              />
+            </div>
+
+            {/* Floating briefing panel — overlaid on globe */}
+            {showBriefing && (
+              <div className="absolute top-16 left-4 z-20 w-72 pointer-events-auto"
+                style={{ maxHeight: "calc(100% - 5rem)" }}>
+                <div className="rounded-xl overflow-hidden h-full flex flex-col"
+                  style={{ background: "rgba(4,6,12,0.92)", border: "1px solid rgba(0,245,255,0.18)", backdropFilter: "blur(20px)", maxHeight: "70vh" }}>
+                  <div className="flex items-center justify-between px-3 py-2 shrink-0"
+                    style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-3.5 h-3.5 text-[#00F5FF]" />
+                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-[#00F5FF]">Briefing Stratégique</span>
+                    </div>
+                    <button onClick={() => setShowBriefing(false)} className="text-white/20 hover:text-white/60 transition-colors text-xs p-1 rounded">✕</button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto">
+                    <AiSummaryPanel headless />
+                  </div>
+                </div>
               </div>
             )}
 
+            {/* AI Chat panel */}
+            {showChat && (
+              <div className="absolute top-16 left-4 z-20 w-80 pointer-events-auto"
+                style={{ maxHeight: "calc(100% - 5rem)" }}>
+                <div className="rounded-xl overflow-hidden flex flex-col"
+                  style={{ height: "70vh", background: "rgba(4,6,12,0.92)", border: "1px solid rgba(170,68,255,0.25)", backdropFilter: "blur(20px)" }}>
+                  <div className="flex items-center justify-between px-3 py-2 shrink-0"
+                    style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="w-3.5 h-3.5 text-violet-400" />
+                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-violet-400">Analyste IA</span>
+                    </div>
+                    <button onClick={() => setShowChat(false)} className="text-white/20 hover:text-white/60 transition-colors text-xs p-1 rounded">✕</button>
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <AiChat />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Bottom center hint */}
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+              <span className="text-[7.5px] font-mono text-white/15 uppercase tracking-widest">
+                Cliquer pays · Cliquer point · FAB = panneaux
+              </span>
+            </div>
           </div>
+
+          {/* ── RIGHT — Alert feed (collapsible) ─────────────────────────── */}
+          {showFeed && (
+            <div className="h-full z-20 flex-shrink-0">
+              <AlertFeed onHide={() => setShowFeed(false)} />
+            </div>
+          )}
         </div>
       </AppLayout>
     </>
+  );
+}
+
+function FabButton({
+  active, onClick, icon, label,
+}: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      title={label}
+      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-200 group"
+      style={{
+        background: active ? "rgba(0,245,255,0.12)" : "rgba(4,6,12,0.75)",
+        border: `1px solid ${active ? "rgba(0,245,255,0.3)" : "rgba(255,255,255,0.08)"}`,
+        backdropFilter: "blur(12px)",
+        color: active ? "#00F5FF" : "rgba(255,255,255,0.35)",
+        boxShadow: active ? "0 0 12px rgba(0,245,255,0.12)" : "none",
+      }}>
+      <span className={active ? "text-[#00F5FF]" : "text-white/35"}>{icon}</span>
+      <span>{label}</span>
+    </button>
   );
 }

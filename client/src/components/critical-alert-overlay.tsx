@@ -1,448 +1,177 @@
 /**
- * Critical Alert Overlay — Argos V6.2
- *
- * Flow en 2 phases séquentielles :
- *  1. Nouvelle donnée (aiVerified=null) → son d'entrée discret + carte "ANALYSE EN COURS" (3s)
- *  2a. IA confirme (aiVerified=true) + critical/high → carte alerte + son contextuel (10s)
- *  2b. IA confirme (aiVerified=true) + medium → retrait de l'overlay, son discret
- *  2c. IA rejette (aiVerified=false) → retrait silencieux
- *
- * Cooldown 2s entre notifications consécutives.
- * Sons joués quand la notification devient active à l'écran (pas à l'entrée en queue).
+ * Critical Alert Overlay — Argos V7
+ * Toast-style notifications, bottom-right, max 3 visible, auto-dismiss.
+ * Sounds removed — TTS only via browser SpeechSynthesis.
  */
 
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { X } from 'lucide-react';
-import { useLanguage } from '@/contexts/language-context';
-import { parseSourceBadge } from '@/lib/source-badge';
-import {
-  soundIncoming, soundVerifiedResult, soundVerifiedLow,
-} from '@/lib/sounds';
-import type { Alert } from '@shared/schema';
+import { useEffect, useState, useRef, useCallback } from "react";
+import { X, AlertTriangle, Zap } from "lucide-react";
+import type { Alert } from "@shared/schema";
 
-// ── Source badge kind → icon ───────────────────────────────────────────────────
-const KIND_ICONS: Record<string, string> = {
-  telegram: '📡', press: '📰', x: '𝕏', firms: '🛰', nasa: '🛰', web: '🌐',
+const SEV_META: Record<string, { color: string; bg: string; border: string; label: string }> = {
+  critical: { color: "#FF1A3E", bg: "rgba(255,26,62,0.08)",   border: "rgba(255,26,62,0.35)",   label: "CRITIQUE"   },
+  high:     { color: "#FFB800", bg: "rgba(255,184,0,0.07)",   border: "rgba(255,184,0,0.30)",   label: "ÉLEVÉ"      },
+  medium:   { color: "#00F5FF", bg: "rgba(0,245,255,0.06)",   border: "rgba(0,245,255,0.25)",   label: "MOYEN"      },
+  low:      { color: "#666666", bg: "rgba(100,100,100,0.05)", border: "rgba(100,100,100,0.20)", label: "BAS"        },
 };
 
-// ── Type → emoji ────────────────────────────────────────────────────────────────
 const TYPE_EMOJIS: Record<string, string> = {
-  // ALERTES
-  missile: '🚀', airstrike: '✈️', artillery: '💣', naval: '⚓',
-  conflict: '⚔️', explosion: '💥', chemical: '☣️', nuclear: '☢️',
-  cyber: '💻', massacre: '💀', terrorism: '🔴', coup: '⚖️',
-  // INFORMATIONS
-  diplomatic: '🤝', political: '🏛️', 'military-move': '🪖',
-  sanctions: '🚫', protest: '📢', humanitarian: '🆘',
-  breaking: '📡', warning: '⚠️', info: 'ℹ️',
+  missile:"🚀", airstrike:"✈️", artillery:"💣", naval:"⚓",
+  conflict:"⚔️", explosion:"💥", chemical:"☣️", nuclear:"☢️",
+  cyber:"💻", massacre:"💀", terrorism:"🔴", coup:"⚖️",
+  earthquake:"🌍", tsunami:"🌊", volcano:"🌋", flood:"💧",
+  wildfire:"🔥", hurricane:"🌀", cyclone:"🌀", tornado:"🌪️",
+  storm:"⛈️", heatwave:"🌡️", pandemic:"🦠", epidemic:"🦠",
+  outbreak:"🦠", diplomatic:"🤝", political:"🏛️", sanctions:"🚫",
+  protest:"📢", humanitarian:"🆘", breaking:"📡", warning:"⚠️", info:"ℹ️",
 };
 
-// ── Severity → accent ───────────────────────────────────────────────────────────
-function accentOf(severity: string): { rgb: string; hex: string } {
-  switch (severity) {
-    case 'critical': return { rgb: '255,0,60',   hex: '#FF003C' };
-    case 'high':     return { rgb: '255,184,0',  hex: '#FFB800' };
-    case 'medium':   return { rgb: '0,240,255',  hex: '#00F0FF' };
-    default:         return { rgb: '150,150,150', hex: '#999' };
-  }
-}
-
-// ── Queue item shape ────────────────────────────────────────────────────────────
-interface QueueItem {
+interface Toast {
+  id: number;
   alert: Alert;
-  phase: 'pending' | 'verified';
+  entering: boolean;
+  exiting: boolean;
 }
 
-interface Props {
-  alerts: Alert[];
+interface Props { alerts: Alert[] }
+
+function speakAlert(alert: Alert) {
+  if (typeof window === "undefined" || !window.speechSynthesis) return;
+  if ((window as any).__argos_tts_muted) return;
+  const label = (alert as any).aiLabel ?? alert.title;
+  const sev = alert.severity === "critical" ? "ALERTE CRITIQUE" : "ALERTE";
+  const utterance = new SpeechSynthesisUtterance(`${sev}. ${label}`);
+  utterance.lang = "fr-FR";
+  utterance.rate = 1.1;
+  utterance.pitch = alert.severity === "critical" ? 0.9 : 1;
+  utterance.volume = 0.7;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
 }
 
 export function CriticalAlertOverlay({ alerts }: Props) {
-  const { t } = useLanguage();
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [viewIdx, setViewIdx] = useState(0);
-  const [progress, setProgress] = useState(100);
-  const [cooldown, setCooldown] = useState(false); // 2s gap between notifications
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const seenIds = useRef<Set<number>>(new Set());
+  const initialized = useRef(false);
+  const toastIdRef = useRef(0);
 
-  // Tracking refs
-  const initializedRef    = useRef(false);
-  const prevAlertsMap     = useRef<Map<number, Alert>>(new Map());
-  const pendingIds        = useRef<Set<number>>(new Set());
-  const timerRef          = useRef<ReturnType<typeof setTimeout>>();
-  const intervalRef       = useRef<ReturnType<typeof setInterval>>();
-  const cooldownRef       = useRef<ReturnType<typeof setTimeout>>();
-  const prevCurrentId     = useRef<number | null>(null);
-  const prevCurrentPhase  = useRef<string | null>(null);
+  const dismiss = useCallback((id: number) => {
+    setToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t));
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 300);
+  }, []);
 
-  // ── Alert processing ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (alerts.length === 0) return;
 
-    if (!initializedRef.current) {
-      prevAlertsMap.current = new Map(alerts.map(a => [a.id, a]));
-      initializedRef.current = true;
+    if (!initialized.current) {
+      alerts.forEach(a => seenIds.current.add(a.id));
+      initialized.current = true;
       return;
     }
 
-    const H3 = 3 * 60 * 60 * 1000;
-    const toAdd: QueueItem[] = [];
-
-    for (const alert of alerts) {
-      const prev = prevAlertsMap.current.get(alert.id);
-
-      if (!prev) {
-        // ── NEW alert ─────────────────────────────────────────────────────────
-        const age = alert.timestamp ? Date.now() - new Date(alert.timestamp).getTime() : 0;
-        if (age > H3) continue;
-        if (alert.aiVerified === false) continue;
-
-        if (alert.aiVerified === true) {
-          if (alert.severity === 'critical' || alert.severity === 'high' || alert.severity === 'medium') {
-            toAdd.push({ alert, phase: 'verified' });
-            // Son joué quand l'alerte devient active (dans le useEffect ci-dessous)
-          } else {
-            soundVerifiedLow(); // low : son discret uniquement
-          }
-        } else {
-          // aiVerified = null → "ANALYSE EN COURS"
-          if (alert.severity !== 'low') {
-            toAdd.push({ alert, phase: 'pending' });
-            pendingIds.current.add(alert.id);
-            soundIncoming(); // son discret d'arrivée
-          }
-        }
-
-      } else {
-        // ── MISE À JOUR d'une alerte existante ───────────────────────────────
-        const wasNull = prev.aiVerified === null || prev.aiVerified === undefined;
-        const nowTrue = alert.aiVerified === true;
-        const nowFalse = alert.aiVerified === false;
-
-        if (wasNull && nowTrue && pendingIds.current.has(alert.id)) {
-          pendingIds.current.delete(alert.id);
-
-          if (alert.severity === 'critical' || alert.severity === 'high' || alert.severity === 'medium') {
-            // Upgrade: pending → verified (son joué quand la carte devient active)
-            setQueue(q => q.map(item =>
-              item.alert.id === alert.id ? { alert, phase: 'verified' } : item
-            ));
-          } else {
-            // Low confirmé → retrait, son discret
-            setQueue(q => q.filter(item => item.alert.id !== alert.id));
-            soundVerifiedLow();
-          }
-        } else if (wasNull && nowFalse && pendingIds.current.has(alert.id)) {
-          pendingIds.current.delete(alert.id);
-          setQueue(q => q.filter(item => item.alert.id !== alert.id));
-        }
-      }
-    }
-
-    prevAlertsMap.current = new Map(alerts.map(a => [a.id, a]));
-
-    if (toAdd.length > 0) {
-      setQueue(q => [...toAdd, ...q]);
-      setViewIdx(0);
-    }
-  }, [alerts]);
-
-  // ── Auto-dismiss timer ───────────────────────────────────────────────────────
-  const current = queue[viewIdx] ?? null;
-
-  const startTimer = useCallback((duration: number) => {
-    clearTimeout(timerRef.current);
-    clearInterval(intervalRef.current);
-    setProgress(100);
-    const TICK = 50;
-    intervalRef.current = setInterval(() => {
-      setProgress(p => Math.max(0, p - (TICK / duration) * 100));
-    }, TICK);
-    timerRef.current = setTimeout(() => {
-      clearInterval(intervalRef.current);
-      // Cooldown 2s avant la prochaine notification
-      setCooldown(true);
-      cooldownRef.current = setTimeout(() => {
-        setCooldown(false);
-        setQueue(q => {
-          const next = q.filter((_, i) => i !== viewIdx);
-          setViewIdx(v => Math.min(v, Math.max(0, next.length - 1)));
-          return next;
-        });
-      }, 2000);
-    }, duration);
-  }, [viewIdx]);
-
-  // ── Son joué quand la notification devient active à l'écran ─────────────────
-  useEffect(() => {
-    if (!current) return;
-    const sameAlert = current.alert.id === prevCurrentId.current;
-    const samePhase = current.phase === prevCurrentPhase.current;
-    if (sameAlert && samePhase) return;
-
-    prevCurrentId.current = current.alert.id;
-    prevCurrentPhase.current = current.phase;
-
-    if (current.phase === 'verified') {
-      // Son contextuel joué ICI, quand l'alerte s'affiche
-      soundVerifiedResult(current.alert.type, current.alert.severity, current.alert.title);
-      const duration = current.alert.severity === 'critical' ? 10000 : current.alert.severity === 'high' ? 8000 : 6000;
-      startTimer(duration);
-    } else {
-      // Pending : vérification brève (3s), pas de son contextuel
-      startTimer(3000);
-    }
-
-    return () => {
-      clearTimeout(timerRef.current);
-      clearInterval(intervalRef.current);
-    };
-  }, [current?.alert.id, current?.phase, startTimer]);
-
-  // ── Navigation ───────────────────────────────────────────────────────────────
-  const dismissCurrent = useCallback(() => {
-    clearTimeout(timerRef.current); clearInterval(intervalRef.current);
-    clearTimeout(cooldownRef.current); setCooldown(false);
-    setQueue(q => {
-      const next = q.filter((_, i) => i !== viewIdx);
-      setViewIdx(v => Math.min(v, Math.max(0, next.length - 1)));
-      return next;
-    });
-  }, [viewIdx]);
-
-  const dismissAll = useCallback(() => {
-    clearTimeout(timerRef.current); clearInterval(intervalRef.current);
-    clearTimeout(cooldownRef.current); setCooldown(false);
-    setQueue([]); setViewIdx(0);
-  }, []);
-
-  const navigate = useCallback((dir: 1 | -1) => {
-    clearTimeout(timerRef.current); clearInterval(intervalRef.current);
-    clearTimeout(cooldownRef.current); setCooldown(false);
-    setViewIdx(v => Math.max(0, Math.min(queue.length - 1, v + dir)));
-  }, [queue.length]);
-
-  // Pendant le cooldown : si il n'y a pas de notifications, afficher rien
-  if (!current && !cooldown) return null;
-  if (!current) return null; // pendant cooldown avant que setQueue n'update
-
-  const { alert: a, phase } = current;
-  const isPending = phase === 'pending';
-
-  // ── Pending card ─────────────────────────────────────────────────────────────
-  if (isPending) {
-    return (
-      <div className="fixed inset-0 z-[9999] pointer-events-none flex items-start justify-center pt-6">
-        <div
-          className="pointer-events-auto relative overflow-hidden rounded-2xl shadow-xl backdrop-blur-xl"
-          style={{
-            border: '1px solid rgba(0,240,255,0.25)',
-            boxShadow: '0 0 30px rgba(0,240,255,0.12)',
-            background: 'rgba(0,5,15,0.92)',
-            minWidth: 320, maxWidth: 460,
-            animation: 'alert-drop 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards',
-          }}
-        >
-          <style>{`
-            @keyframes alert-drop { from { opacity:0; transform:translateY(-20px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }
-            @keyframes scan-line { 0% { transform:translateX(-100%); } 100% { transform:translateX(100%); } }
-          `}</style>
-
-          {/* Scan animation */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div style={{
-              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-              background: 'linear-gradient(90deg, transparent 0%, rgba(0,240,255,0.06) 50%, transparent 100%)',
-              animation: 'scan-line 1.8s linear infinite',
-            }} />
-          </div>
-
-          <div className="flex items-center justify-between px-4 py-3 border-b border-white/8">
-            <div className="flex items-center gap-2">
-              <div className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-              </div>
-              <span className="font-black text-[10px] tracking-[0.2em] uppercase text-primary">
-                {t.overlay.analyzing}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {queue.length > 1 && (
-                <span className="text-[9px] font-mono text-muted-foreground">{viewIdx + 1}/{queue.length}</span>
-              )}
-              <button onClick={dismissAll} className="opacity-30 hover:opacity-80 transition-opacity text-primary">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          <div className="px-4 py-3 flex items-center gap-3">
-            <div className="text-2xl animate-pulse">🔍</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-semibold text-white/80 line-clamp-2">{a.title}</div>
-              <div className="text-[10px] text-primary/60 font-mono mt-0.5">{t.overlay.analyzingDesc}</div>
-            </div>
-          </div>
-
-          <div className="h-0.5 bg-white/5">
-            <div className="h-full transition-none bg-primary/50" style={{ width: `${progress}%` }} />
-          </div>
-        </div>
-      </div>
+    const newAlerts = alerts.filter(a =>
+      !seenIds.current.has(a.id) &&
+      a.aiVerified === true &&
+      (a.severity === "critical" || a.severity === "high")
     );
-  }
 
-  // ── Verified alert card ───────────────────────────────────────────────────────
-  const { rgb: ac, hex: accentColor } = accentOf(a.severity);
-  const isCritical = a.severity === 'critical';
-  const emoji = TYPE_EMOJIS[a.type] ?? '⚠️';
+    for (const alert of newAlerts.slice(0, 3)) {
+      seenIds.current.add(alert.id);
+      const id = ++toastIdRef.current;
 
-  const INFO_TYPES = new Set(['info', 'diplomatic', 'political', 'military-move', 'sanctions', 'protest', 'humanitarian', 'warning']);
-  let headerLabel: string;
-  if (a.type === 'breaking')          headerLabel = t.overlay.breaking;
-  else if (INFO_TYPES.has(a.type))    headerLabel = t.overlay.info;
-  else if (isCritical)                headerLabel = t.overlay.critical;
-  else                                headerLabel = t.overlay.high;
+      setToasts(prev => {
+        const next = [...prev.slice(-2), { id, alert, entering: true, exiting: false }];
+        return next;
+      });
 
-  const badge = parseSourceBadge((a as any).source, (a as any).sourceType);
-  const isInfoType = ['info', 'breaking', 'diplomatic', 'political', 'military-move', 'sanctions', 'protest', 'humanitarian', 'warning'].includes(a.type);
+      setTimeout(() => {
+        setToasts(prev => prev.map(t => t.id === id ? { ...t, entering: false } : t));
+      }, 50);
+
+      if (alert.severity === "critical") speakAlert(alert);
+
+      setTimeout(() => dismiss(id), alert.severity === "critical" ? 12000 : 8000);
+    }
+
+    alerts.forEach(a => seenIds.current.add(a.id));
+  }, [alerts, dismiss]);
+
+  if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] pointer-events-none flex items-start justify-center pt-6">
-      {/* Vignette flash — plus intense pour critique */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: `radial-gradient(ellipse at center, transparent 35%, rgba(${ac},${isCritical ? 0.18 : 0.10}) 100%)`,
-          animation: `alert-vignette ${isCritical ? '1.5s' : '0.6s'} ease-out forwards`,
-        }}
-      />
+    <div className="fixed bottom-6 right-5 z-[200] flex flex-col gap-2 items-end pointer-events-none"
+      style={{ maxWidth: 340 }}>
+      {toasts.map(toast => {
+        const { alert } = toast;
+        const meta = SEV_META[alert.severity] ?? SEV_META.low;
+        const emoji = TYPE_EMOJIS[alert.type] ?? "⚠️";
+        const displayTitle = (alert as any).aiLabel ?? alert.title;
 
-      {/* Alert panel */}
-      <div
-        className="pointer-events-auto relative overflow-hidden rounded-2xl shadow-2xl backdrop-blur-xl"
-        style={{
-          border: `2px solid rgba(${ac},0.55)`,
-          boxShadow: `0 0 50px rgba(${ac},0.35), 0 0 100px rgba(${ac},0.12), inset 0 1px 0 rgba(255,255,255,0.06)`,
-          background: `linear-gradient(135deg, rgba(${ac},0.08) 0%, rgba(0,0,0,0.94) 55%)`,
-          minWidth: 340, maxWidth: 500,
-          animation: `alert-drop 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards${isCritical ? ', critical-pulse 1.5s ease-in-out 0.4s infinite' : ''}`,
-        }}
-      >
-        <style>{`
-          @keyframes alert-drop { from { opacity:0; transform:translateY(-24px) scale(0.96); } to { opacity:1; transform:translateY(0) scale(1); } }
-          @keyframes alert-vignette { 0% { opacity:1; } 100% { opacity:0; } }
-          @keyframes critical-pulse {
-            0%, 100% { box-shadow: 0 0 50px rgba(255,0,60,0.35), 0 0 100px rgba(255,0,60,0.12), inset 0 1px 0 rgba(255,255,255,0.06); }
-            50%       { box-shadow: 0 0 80px rgba(255,0,60,0.65), 0 0 160px rgba(255,0,60,0.28), inset 0 1px 0 rgba(255,255,255,0.06); }
-          }
-        `}</style>
+        return (
+          <div key={toast.id}
+            className={toast.entering ? "toast-enter" : toast.exiting ? "toast-exit" : ""}
+            style={{ pointerEvents: "all" }}>
+            <div className="rounded-xl backdrop-blur-xl shadow-2xl relative overflow-hidden"
+              style={{
+                background: `rgba(4,6,12,0.94)`,
+                border: `1px solid ${meta.border}`,
+                boxShadow: `0 0 24px ${meta.color}22, 0 8px 32px rgba(0,0,0,0.6)`,
+                width: 320,
+              }}>
+              {/* Top severity bar */}
+              <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: meta.color }} />
 
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-5 py-2.5 border-b"
-          style={{ borderColor: `rgba(${ac},0.25)`, background: `rgba(${ac},0.12)` }}
-        >
-          <div className="flex items-center gap-2">
-            <div className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-70"
-                style={{ background: accentColor }} />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ background: accentColor }} />
-            </div>
-            <span className="font-black text-[10px] tracking-[0.2em] uppercase" style={{ color: accentColor }}>
-              {headerLabel}
-            </span>
-            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded uppercase"
-              style={{ background: `rgba(${ac},0.15)`, color: `rgba(${ac},0.8)` }}>
-              {t.types[a.type] ?? a.type.toUpperCase()}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            {queue.length > 1 && (
-              <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded-full"
-                style={{ background: `rgba(${ac},0.18)`, color: accentColor }}>
-                {viewIdx + 1}/{queue.length}
-              </span>
-            )}
-            <button onClick={dismissAll} className="opacity-35 hover:opacity-90 transition-opacity"
-              style={{ color: accentColor }}>
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+              <div className="px-3 py-2.5 flex items-start gap-2.5">
+                {/* Emoji */}
+                <span className="text-xl leading-none shrink-0 mt-0.5">{emoji}</span>
 
-        {/* Body */}
-        <div className="px-5 py-4 flex items-start gap-4">
-          <div className="text-4xl leading-none shrink-0 mt-0.5"
-            style={{ filter: `drop-shadow(0 0 10px rgba(${ac},0.65))` }}>
-            {emoji}
-          </div>
-          <div className="flex-1 min-w-0">
-            {(a as any).aiLabel && (a as any).aiLabel !== a.title && (
-              <div className="text-[9px] font-mono uppercase tracking-widest mb-1"
-                style={{ color: `rgba(${ac},0.7)` }}>
-                {(a as any).aiLabel}
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-[8px] font-black uppercase tracking-widest"
+                      style={{ color: meta.color }}>
+                      {meta.label}
+                    </span>
+                    {alert.severity === "critical" && (
+                      <span className="flex gap-0.5">
+                        {[0,1,2].map(i => (
+                          <span key={i} className="w-1 h-1 rounded-full"
+                            style={{ background: meta.color, animation: `live-ping 0.8s ease-out ${i * 0.15}s infinite` }} />
+                        ))}
+                      </span>
+                    )}
+                    <span className="ml-auto text-[7.5px] font-mono text-white/25">
+                      {alert.country ?? ""}
+                    </span>
+                  </div>
+                  <p className="text-[10.5px] font-semibold text-white/90 leading-snug line-clamp-2">
+                    {displayTitle}
+                  </p>
+                  {alert.description && (
+                    <p className="text-[9px] text-white/40 mt-0.5 line-clamp-1">{alert.description}</p>
+                  )}
+                </div>
+
+                {/* Dismiss */}
+                <button onClick={() => dismiss(toast.id)}
+                  className="text-white/20 hover:text-white/60 transition-colors shrink-0 p-0.5 rounded mt-0.5">
+                  <X className="w-3 h-3" />
+                </button>
               </div>
-            )}
-            <h2 className="font-bold text-sm text-white leading-snug mb-2 line-clamp-3">
-              {a.title}
-            </h2>
 
-            <div className="flex items-center gap-2 flex-wrap text-[9px] font-mono mb-2">
-              <span className="px-1.5 py-0.5 rounded font-bold"
-                style={{ background: `rgba(${ac},0.15)`, color: accentColor }}>
-                {t.overlay.verified}
-              </span>
-              <span className="px-1.5 py-0.5 rounded font-bold flex items-center gap-0.5"
-                style={{ background: `${badge.color}20`, color: badge.color }}>
-                <span>{KIND_ICONS[badge.kind] ?? '📡'}</span>
-                <span>{badge.name}</span>
-              </span>
-              {a.timestamp && (
-                <span className="text-white/25 ml-auto">
-                  {new Date(a.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3 text-[10px] font-mono text-white/40">
-              <span>{a.country || t.overlay.unknownPos}</span>
-              {!isInfoType && a.lat && a.lng && (
-                <span className="ml-auto" style={{ color: `rgba(${ac},0.6)` }}>
-                  {Number(a.lat).toFixed(2)}° {Number(a.lng).toFixed(2)}°
-                </span>
-              )}
+              {/* Bottom: auto-dismiss progress */}
+              <div className="h-px mx-3 mb-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                <div className="h-full rounded-full" style={{
+                  background: meta.color,
+                  animation: `${alert.severity === "critical" ? "12" : "8"}s linear forwards`,
+                  animationName: "shrink-x",
+                  width: "100%",
+                }} />
+              </div>
             </div>
           </div>
-        </div>
-
-        {/* Footer navigation */}
-        {queue.length > 1 && (
-          <div className="px-5 pb-3 flex items-center justify-between"
-            style={{ borderTop: `1px solid rgba(${ac},0.12)`, paddingTop: '10px' }}>
-            <button onClick={() => navigate(-1)} disabled={viewIdx === 0}
-              className="text-xs font-bold px-3 py-1 rounded-lg disabled:opacity-20 transition-all"
-              style={{ color: accentColor, background: `rgba(${ac},0.1)`, border: `1px solid rgba(${ac},0.22)` }}>
-              {t.overlay.prev}
-            </button>
-            <button onClick={dismissCurrent}
-              className="text-[9px] font-mono uppercase tracking-widest opacity-40 hover:opacity-80 transition-opacity"
-              style={{ color: accentColor }}>
-              {t.overlay.ignore}
-            </button>
-            <button onClick={() => navigate(1)} disabled={viewIdx === queue.length - 1}
-              className="text-xs font-bold px-3 py-1 rounded-lg disabled:opacity-20 transition-all"
-              style={{ color: accentColor, background: `rgba(${ac},0.1)`, border: `1px solid rgba(${ac},0.22)` }}>
-              {t.overlay.next}
-            </button>
-          </div>
-        )}
-
-        {/* Progress bar */}
-        <div className="h-0.5 bg-white/5">
-          <div className="h-full transition-none" style={{ width: `${progress}%`, background: accentColor }} />
-        </div>
-      </div>
+        );
+      })}
     </div>
   );
 }
