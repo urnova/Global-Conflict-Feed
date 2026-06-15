@@ -1,17 +1,17 @@
 import { useCountryTension, type CountryTensionEntry } from "@/hooks/use-country-tension";
 import { clsx } from "clsx";
-import { RefreshCw, Flame, ShieldAlert, AlertOctagon, Eye, Activity, Shield, ChevronRight } from "lucide-react";
+import { RefreshCw, Flame, ShieldAlert, AlertOctagon, Eye, Shield, Activity, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
 type TensionStatus = CountryTensionEntry["status"];
 
 const STATUS_META: Record<TensionStatus, { label: string; color: string; bg: string; icon: React.ReactNode; order: number }> = {
-  war:        { label: "GUERRE",       color: "#FF1A3E", bg: "rgba(255,26,62,0.12)",   icon: <Flame className="w-3 h-3" />,        order: 0 },
-  high:       { label: "ÉLEVÉ",        color: "#FF5500", bg: "rgba(255,85,0,0.10)",    icon: <ShieldAlert className="w-3 h-3" />,  order: 1 },
-  tension:    { label: "TENSION",      color: "#FFB800", bg: "rgba(255,184,0,0.09)",   icon: <AlertOctagon className="w-3 h-3" />, order: 2 },
-  sanctions:  { label: "SANCTIONS",    color: "#AA44FF", bg: "rgba(170,68,255,0.09)",  icon: <Activity className="w-3 h-3" />,     order: 3 },
-  watchlist:  { label: "SURVEILLANCE", color: "#00F5FF", bg: "rgba(0,245,255,0.07)",   icon: <Eye className="w-3 h-3" />,         order: 4 },
-  stable:     { label: "STABLE",       color: "#3DBE7A", bg: "rgba(61,190,122,0.07)",  icon: <Shield className="w-3 h-3" />,      order: 5 },
+  war:       { label: "Guerre",       color: "#F02D3A", bg: "rgba(240,45,58,0.10)",   icon: <Flame className="w-3 h-3" />,       order: 0 },
+  high:      { label: "Élevé",        color: "#EF4444", bg: "rgba(239,68,68,0.08)",   icon: <ShieldAlert className="w-3 h-3" />, order: 1 },
+  tension:   { label: "Tension",      color: "#F59E0B", bg: "rgba(245,158,11,0.08)",  icon: <AlertOctagon className="w-3 h-3" />,order: 2 },
+  sanctions: { label: "Sanctions",    color: "#A855F7", bg: "rgba(168,85,247,0.08)",  icon: <Activity className="w-3 h-3" />,    order: 3 },
+  watchlist: { label: "Surveillance", color: "#00C8D4", bg: "rgba(0,200,212,0.07)",   icon: <Eye className="w-3 h-3" />,         order: 4 },
+  stable:    { label: "Stable",       color: "#10B981", bg: "rgba(16,185,129,0.07)",  icon: <Shield className="w-3 h-3" />,      order: 5 },
 };
 
 export function getTensionStatusColor(status: TensionStatus): string {
@@ -29,49 +29,54 @@ const COUNTRY_CENTERS: Record<string, [number, number]> = {
   CD: [-4.0, 21.8], RS: [44.0, 21.0], GE: [42.3, 43.4], BY: [53.7, 27.9],
 };
 
-const TIER_FILTERS: { key: string; label: string; statuses: TensionStatus[] }[] = [
-  { key: "ALL",      label: "TOUT",     statuses: ["war","high","tension","sanctions","watchlist","stable"] },
-  { key: "GUERRE",   label: "GUERRE",   statuses: ["war"] },
-  { key: "CRITIQUE", label: "CRITIQUE", statuses: ["high","tension"] },
-  { key: "SUIVI",    label: "SUIVI",    statuses: ["sanctions","watchlist"] },
-  { key: "STABLE",   label: "STABLE",   statuses: ["stable"] },
+const TIER_FILTERS = [
+  { key: "ALL",      label: "Tout",     statuses: ["war","high","tension","sanctions","watchlist","stable"] as TensionStatus[] },
+  { key: "GUERRE",   label: "Guerre",   statuses: ["war"] as TensionStatus[] },
+  { key: "CRITIQUE", label: "Critique", statuses: ["high","tension"] as TensionStatus[] },
+  { key: "SUIVI",    label: "Suivi",    statuses: ["sanctions","watchlist"] as TensionStatus[] },
+  { key: "STABLE",   label: "Stable",   statuses: ["stable"] as TensionStatus[] },
 ];
 
 function FlagImg({ code }: { code?: string | null }) {
-  if (!code || code.length !== 2) return <span className="text-xs">🌍</span>;
-  const c = code.toLowerCase();
+  if (!code || code.length !== 2) return <span className="text-xs opacity-30">🌍</span>;
   return (
-    <img src={`https://flagcdn.com/20x15/${c}.png`}
-      srcSet={`https://flagcdn.com/40x30/${c}.png 2x`}
+    <img
+      src={`https://flagcdn.com/20x15/${code.toLowerCase()}.png`}
+      srcSet={`https://flagcdn.com/40x30/${code.toLowerCase()}.png 2x`}
       width="20" height="15" alt={code}
-      className="shrink-0 rounded-sm" style={{ display: "inline", verticalAlign: "middle" }} />
+      className="shrink-0 rounded-sm opacity-75"
+    />
   );
 }
 
 function ScoreBar({ score, color }: { score: number; color: string }) {
   const pct = Math.min(100, Math.max(0, score));
   return (
-    <div className="w-10 h-0.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+    <div className="w-10 h-0.5 rounded-full overflow-hidden bg-white/5">
       <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: color }} />
     </div>
   );
 }
 
-function CountryRow({ entry, rank, onClick }: { entry: CountryTensionEntry; rank: number; onClick: (e: CountryTensionEntry) => void }) {
+function CountryRow({ entry, rank, onClick }: {
+  entry: CountryTensionEntry;
+  rank: number;
+  onClick: (e: CountryTensionEntry) => void;
+}) {
   const meta = STATUS_META[entry.status] ?? STATUS_META.stable;
   return (
     <button
-      className="w-full text-left px-2.5 py-2 flex items-center gap-2 group transition-all duration-150 relative"
+      className="w-full text-left px-3 py-2 flex items-center gap-2.5 group transition-all duration-100 relative hover:bg-white/[0.02]"
       style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}
       onClick={() => onClick(entry)}
-      title={entry.reason}
-    >
-      {/* Status accent bar */}
-      <div className="absolute left-0 top-1 bottom-1 w-0.5 rounded-r-full" style={{ background: meta.color, opacity: 0.6 }} />
+      title={entry.reason}>
+
+      {/* Status accent */}
+      <div className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r-full" style={{ background: meta.color, opacity: 0.55 }} />
 
       {/* Rank */}
-      <span className="text-[8px] font-mono text-white/20 w-4 shrink-0 select-none ml-1">
-        {rank < 10 ? `0${rank}` : rank}
+      <span className="text-[9px] font-mono text-white/15 w-4 shrink-0 select-none text-right">
+        {rank}
       </span>
 
       {/* Flag */}
@@ -79,37 +84,38 @@ function CountryRow({ entry, rank, onClick }: { entry: CountryTensionEntry; rank
 
       {/* Name + status */}
       <div className="flex-1 min-w-0">
-        <div className="text-[11px] font-semibold text-white/90 truncate leading-tight">{entry.name}</div>
+        <div className="text-[11px] font-medium text-white/85 truncate leading-tight">{entry.name}</div>
         <div className="flex items-center gap-1 mt-0.5">
-          <span style={{ color: meta.color }} className="opacity-70">{meta.icon}</span>
-          <span className="text-[8px] font-mono font-bold uppercase tracking-wide" style={{ color: meta.color, opacity: 0.8 }}>
+          <span style={{ color: meta.color, opacity: 0.6 }} className="shrink-0">{meta.icon}</span>
+          <span className="text-[8px] font-mono font-semibold uppercase tracking-wide" style={{ color: meta.color, opacity: 0.75 }}>
             {meta.label}
           </span>
         </div>
       </div>
 
-      {/* Score + events */}
-      <div className="flex flex-col items-end gap-0.5 shrink-0">
+      {/* Score + alerts */}
+      <div className="flex flex-col items-end gap-1 shrink-0">
         <ScoreBar score={entry.score} color={meta.color} />
         {entry.activeAlerts > 0 && (
-          <span className="text-[8px] font-mono" style={{ color: meta.color, opacity: 0.75 }}>
+          <span className="text-[8px] font-mono font-bold" style={{ color: meta.color, opacity: 0.65 }}>
             {entry.activeAlerts}
           </span>
         )}
       </div>
 
-      <ChevronRight className="w-2.5 h-2.5 text-white/10 group-hover:text-white/30 transition-colors shrink-0" />
+      <ChevronRight className="w-2.5 h-2.5 text-white/8 group-hover:text-white/25 transition-colors shrink-0" />
     </button>
   );
 }
 
-interface Props {
+export function CountryTensionPanel({
+  onCountryClick,
+  mobile = false,
+}: {
   onCountryClick?: (code: string, lat?: number, lng?: number) => void;
   onHide?: () => void;
   mobile?: boolean;
-}
-
-export function CountryTensionPanel({ onCountryClick, onHide, mobile = false }: Props) {
+}) {
   const { data: tensions, isLoading, refetch } = useCountryTension();
   const [activeFilter, setActiveFilter] = useState("ALL");
 
@@ -118,9 +124,9 @@ export function CountryTensionPanel({ onCountryClick, onHide, mobile = false }: 
     onCountryClick?.(entry.code, coords?.[0], coords?.[1]);
   };
 
-  const warCount    = tensions?.filter(t => t.status === "war").length ?? 0;
-  const highCount   = tensions?.filter(t => t.status === "high").length ?? 0;
-  const tensionCount= tensions?.filter(t => t.status === "tension").length ?? 0;
+  const warCount     = tensions?.filter(t => t.status === "war").length ?? 0;
+  const highCount    = tensions?.filter(t => t.status === "high").length ?? 0;
+  const tensionCount = tensions?.filter(t => t.status === "tension").length ?? 0;
 
   const currentFilter = TIER_FILTERS.find(f => f.key === activeFilter) ?? TIER_FILTERS[0];
   const filtered = tensions
@@ -128,18 +134,21 @@ export function CountryTensionPanel({ onCountryClick, onHide, mobile = false }: 
     : [];
 
   return (
-    <div className={clsx("glass-sidebar h-full flex flex-col", mobile ? "w-full" : "w-52")}
-      style={{ borderRight: "1px solid rgba(255,255,255,0.06)" }}>
+    <div
+      className={clsx("h-full flex flex-col min-h-0", mobile ? "w-full" : "w-[220px]")}
+      style={{ background: "rgba(6,8,16,0.95)", borderRight: "1px solid rgba(255,255,255,0.06)" }}>
 
       {/* Header */}
-      <div className="px-3 pt-3 pb-2 shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center justify-between mb-2.5">
+      <div className="px-3 pt-3 pb-2.5 shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="live-dot" style={{ width: 7, height: 7 }} />
-            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-white/80">Tensions</span>
+            <span className="live-dot live-dot-cyan" style={{ width: 5, height: 5 }} />
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-white/60">Tensions</span>
           </div>
-          <button onClick={() => refetch()} title="Actualiser"
-            className="text-white/20 hover:text-[#00F5FF] transition-colors p-0.5 rounded">
+          <button
+            onClick={() => refetch()}
+            className="text-white/20 hover:text-[#00C8D4] transition-colors p-1 rounded-md hover:bg-white/5"
+            title="Actualiser">
             <RefreshCw className="w-3 h-3" />
           </button>
         </div>
@@ -147,42 +156,41 @@ export function CountryTensionPanel({ onCountryClick, onHide, mobile = false }: 
         {/* Stat pills */}
         <div className="grid grid-cols-3 gap-1">
           {[
-            { label: "GUERRE",  count: warCount,    color: "#FF1A3E" },
-            { label: "ÉLEVÉ",   count: highCount,   color: "#FF5500" },
-            { label: "TENSION", count: tensionCount, color: "#FFB800" },
+            { label: "Guerre",  count: warCount,    color: "#F02D3A" },
+            { label: "Élevé",   count: highCount,   color: "#EF4444" },
+            { label: "Tension", count: tensionCount, color: "#F59E0B" },
           ].map(s => (
             <div key={s.label} className="rounded-md py-1.5 text-center"
-              style={{ background: `${s.color}10`, border: `1px solid ${s.color}22` }}>
-              <div className="text-[11px] font-black" style={{ color: s.color }}>{s.count}</div>
-              <div className="text-[7px] font-mono text-white/30 uppercase tracking-wide mt-px">{s.label}</div>
+              style={{ background: `${s.color}0e`, border: `1px solid ${s.color}20` }}>
+              <div className="text-[13px] font-bold tabular-nums" style={{ color: s.color }}>{s.count}</div>
+              <div className="text-[7px] font-mono text-white/25 uppercase tracking-wide mt-0.5">{s.label}</div>
             </div>
           ))}
         </div>
       </div>
 
       {/* Filter tabs */}
-      <div className="flex gap-px px-2 py-1.5 shrink-0 overflow-x-auto"
+      <div className="flex gap-1 px-2 py-2 shrink-0"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
         {TIER_FILTERS.map(f => (
-          <button key={f.key}
+          <button
+            key={f.key}
             onClick={() => setActiveFilter(f.key)}
-            className={clsx(
-              "text-[7.5px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded transition-all whitespace-nowrap",
-              activeFilter === f.key
-                ? "text-[#00F5FF] bg-[rgba(0,245,255,0.1)] border border-[rgba(0,245,255,0.25)]"
-                : "text-white/25 hover:text-white/50 border border-transparent"
-            )}>
+            className="flex-1 text-[7.5px] font-medium uppercase tracking-wide py-1 rounded transition-all whitespace-nowrap"
+            style={activeFilter === f.key
+              ? { background: "rgba(0,200,212,0.10)", color: "#00C8D4", border: "1px solid rgba(0,200,212,0.22)" }
+              : { color: "rgba(255,255,255,0.22)", border: "1px solid transparent" }}>
             {f.label}
           </button>
         ))}
       </div>
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Country list */}
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin">
         {isLoading ? (
           <div className="p-3 space-y-1.5">
-            {[...Array(10)].map((_, i) => (
-              <div key={i} className="h-9 rounded-lg animate-pulse" style={{ background: "rgba(255,255,255,0.03)" }} />
+            {[...Array(12)].map((_, i) => (
+              <div key={i} className="h-10 rounded-lg animate-pulse" style={{ background: "rgba(255,255,255,0.03)" }} />
             ))}
           </div>
         ) : filtered.length > 0 ? (
@@ -190,10 +198,10 @@ export function CountryTensionPanel({ onCountryClick, onHide, mobile = false }: 
             <CountryRow key={entry.code} entry={entry} rank={i + 1} onClick={handleClick} />
           ))
         ) : (
-          <div className="p-6 text-center">
-            <div className="text-[9px] font-mono text-white/20 leading-relaxed">
+          <div className="p-8 text-center">
+            <p className="text-[9px] font-mono text-white/20 leading-relaxed">
               Aucune donnée<br />dans cette catégorie
-            </div>
+            </p>
           </div>
         )}
       </div>
@@ -201,7 +209,9 @@ export function CountryTensionPanel({ onCountryClick, onHide, mobile = false }: 
       {/* Footer */}
       <div className="px-3 py-1.5 shrink-0 text-center"
         style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-        <span className="text-[7px] font-mono text-white/15 uppercase tracking-widest">ARGOS · LIVE</span>
+        <span className="text-[7px] font-mono text-white/12 uppercase tracking-widest">
+          {filtered.length} pays · ARGOS Live
+        </span>
       </div>
     </div>
   );

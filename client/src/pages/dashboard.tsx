@@ -4,6 +4,7 @@ import { GlobeView } from "@/components/globe-view";
 import { AlertFeed } from "@/components/alert-feed";
 import { CountryTensionPanel } from "@/components/country-tension-panel";
 import { AiSummaryPanel } from "@/components/ai-summary-panel";
+import { AiChat } from "@/components/ai-chat";
 import { LoadingScreen } from "@/components/loading-screen";
 import { CriticalAlertOverlay } from "@/components/critical-alert-overlay";
 import { MobileDashboard } from "@/components/mobile-dashboard";
@@ -11,12 +12,12 @@ import { useAlerts } from "@/hooks/use-alerts";
 import { useServerStatus } from "@/hooks/use-server-status";
 import { useDeviceType } from "@/hooks/use-mobile";
 import {
-  Activity, Clock, Brain, Map, List, ChevronLeft, ChevronRight,
-  Loader2, AlertTriangle, WifiOff, LayoutPanelLeft, MessageSquare
+  Brain, MessageSquare, Map, List, ChevronLeft, ChevronRight,
+  Loader2, WifiOff, Volume2, VolumeX, Globe2
 } from "lucide-react";
 import { clsx } from "clsx";
 import type { Alert } from "@shared/schema";
-import { AiChat } from "@/components/ai-chat";
+import { isMuted, toggleMute } from "@/lib/sounds";
 
 export default function Dashboard() {
   const device = useDeviceType();
@@ -24,25 +25,10 @@ export default function Dashboard() {
   return <DesktopDashboard />;
 }
 
-// ── HUD stat chip ──────────────────────────────────────────────────────────────
-function StatChip({ label, value, color, pulse }: { label: string; value: number | string; color: string; pulse?: boolean }) {
-  return (
-    <div className="flex flex-col items-center px-3">
-      <div className="flex items-center gap-1">
-        <span className="text-xs font-black tabular-nums" style={{ color }}>{value}</span>
-        {pulse && value > 0 && (
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: color }} />
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: color }} />
-          </span>
-        )}
-      </div>
-      <span className="text-[7px] font-mono uppercase tracking-wider text-white/25 mt-px">{label}</span>
-    </div>
-  );
-}
+// ── Right Panel Tab type ────────────────────────────────────────────────────
+type RightTab = "feed" | "briefing" | "chat";
 
-// ── Desktop ────────────────────────────────────────────────────────────────────
+// ── Desktop Dashboard ───────────────────────────────────────────────────────
 function DesktopDashboard() {
   const { data: alerts } = useAlerts();
   const serverStatus = useServerStatus();
@@ -50,19 +36,11 @@ function DesktopDashboard() {
   const [isLoading, setIsLoading] = useState(() =>
     typeof sessionStorage === "undefined" ? true : !sessionStorage.getItem("argos_v7_loaded")
   );
-  const [time, setTime] = useState(new Date());
   const [focusCountry, setFocusCountry] = useState<{ code: string; lat?: number; lng?: number } | undefined>();
-
-  // Panel visibility
-  const [showTensions, setShowTensions] = useState(true);
-  const [showFeed, setShowFeed] = useState(true);
-  const [showBriefing, setShowBriefing] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-
-  useEffect(() => {
-    const t = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
+  const [showLeft, setShowLeft]     = useState(true);
+  const [showRight, setShowRight]   = useState(true);
+  const [rightTab, setRightTab]     = useState<RightTab>("feed");
+  const [muted, setMuted]           = useState(isMuted());
 
   const handleCountryFocus = useCallback((code: string, lat?: number, lng?: number) => {
     setFocusCountry({ code, lat, lng });
@@ -71,12 +49,8 @@ function DesktopDashboard() {
   const H48 = 48 * 60 * 60 * 1000;
   const recentAlerts = (alerts ?? []).filter(a => !a.timestamp || (Date.now() - new Date(a.timestamp).getTime()) < H48);
   const criticalCount = recentAlerts.filter(a => a.severity === "critical").length;
-  const highCount = recentAlerts.filter(a => a.severity === "high").length;
-  const countryCount = new Set(recentAlerts.map(a => a.countryCode).filter(Boolean)).size;
-
-  const timeStr = time.toLocaleTimeString("fr-FR", {
-    timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
-  });
+  const highCount     = recentAlerts.filter(a => a.severity === "high").length;
+  const countryCount  = new Set(recentAlerts.map(a => a.countryCode).filter(Boolean)).size;
 
   return (
     <>
@@ -89,207 +63,269 @@ function DesktopDashboard() {
       <CriticalAlertOverlay alerts={alerts ?? []} />
 
       <AppLayout>
-        <div className="flex h-full overflow-hidden bg-background">
+        <div className="flex h-full min-h-0 overflow-hidden">
 
-          {/* ── LEFT — Tension panel (collapsible) ───────────────────────── */}
-          <div className={clsx("h-full relative z-20 flex transition-all duration-300",
-            showTensions ? "w-52" : "w-0")} style={{ overflow: showTensions ? "visible" : "hidden" }}>
-            {showTensions && (
-              <CountryTensionPanel onCountryClick={handleCountryFocus} onHide={() => setShowTensions(false)} />
+          {/* ── LEFT — Tension panel ────────────────────────────────────── */}
+          <div className={clsx(
+            "h-full transition-all duration-300 ease-in-out overflow-hidden shrink-0",
+            showLeft ? "w-[220px]" : "w-0"
+          )}>
+            {showLeft && (
+              <CountryTensionPanel onCountryClick={handleCountryFocus} />
             )}
           </div>
 
-          {/* Toggle left panel */}
-          <button
-            onClick={() => setShowTensions(p => !p)}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-30 h-12 w-4 flex items-center justify-center rounded-r-lg transition-all"
-            style={{
-              background: "rgba(0,245,255,0.08)",
-              border: "1px solid rgba(0,245,255,0.15)",
-              borderLeft: "none",
-              marginLeft: showTensions ? 208 : 0,
-            }}
-            title={showTensions ? "Masquer tensions" : "Afficher tensions"}>
-            {showTensions
-              ? <ChevronLeft className="w-2.5 h-2.5 text-[#00F5FF]/50" />
-              : <ChevronRight className="w-2.5 h-2.5 text-[#00F5FF]/50" />}
-          </button>
+          {/* ── CENTER — Globe ──────────────────────────────────────────── */}
+          <div className="relative flex-1 min-w-0 flex flex-col">
 
-          {/* ── CENTER — Globe + overlays ─────────────────────────────────── */}
-          <div className="relative flex-1 min-w-0">
+            {/* Globe stats bar */}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+              <div className="flex items-center gap-0 rounded-lg px-1 py-1"
+                style={{
+                  background: "rgba(6,8,16,0.88)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  backdropFilter: "blur(20px)",
+                }}>
+                <StatusPill status={serverStatus} />
+                <Divider />
+                <StatPill value={criticalCount} label="CRIT" color="#F02D3A" pulse />
+                <Divider />
+                <StatPill value={highCount} label="ELEV" color="#F59E0B" />
+                <Divider />
+                <StatPill value={countryCount} label="PAYS" color="#00C8D4" />
+                <Divider />
+                <StatPill value={recentAlerts.length} label="48H" color="rgba(255,255,255,0.35)" />
+              </div>
+            </div>
+
+            {/* Globe */}
             <GlobeView
               focusCountryCode={focusCountry?.code}
               focusLat={focusCountry?.lat}
               focusLng={focusCountry?.lng}
-              onToggleBriefing={() => setShowBriefing(p => !p)}
-              showBriefing={showBriefing}
-              onToggleTensions={() => setShowTensions(p => !p)}
-              showTensions={showTensions}
-              onToggleFeed={() => setShowFeed(p => !p)}
-              showFeed={showFeed}
+              onToggleBriefing={() => { setRightTab("briefing"); setShowRight(true); }}
+              showBriefing={rightTab === "briefing" && showRight}
+              onToggleTensions={() => setShowLeft(p => !p)}
+              showTensions={showLeft}
+              onToggleFeed={() => { setRightTab("feed"); setShowRight(true); }}
+              showFeed={rightTab === "feed" && showRight}
             />
 
-            {/* HUD top-center — stats bar */}
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-              <div className="hud-bracket flex items-center gap-0 rounded-2xl px-2 py-1.5"
+            {/* Globe bottom toolbar */}
+            <div className="absolute bottom-4 left-0 right-0 z-20 flex items-center justify-center gap-2 pointer-events-none">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl pointer-events-auto"
                 style={{
-                  background: "rgba(4,6,12,0.82)",
-                  border: "1px solid rgba(255,255,255,0.07)",
-                  backdropFilter: "blur(16px)",
-                  boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
+                  background: "rgba(6,8,16,0.90)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  backdropFilter: "blur(20px)",
                 }}>
-                {/* Status indicator */}
-                <div className="flex items-center gap-1.5 px-3">
-                  {serverStatus === "ok" && <span className="live-dot live-dot-cyan" style={{ width: 6, height: 6 }} />}
-                  {serverStatus === "connecting" && <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />}
-                  {serverStatus === "error" && <WifiOff className="w-3 h-3 text-red-500" />}
-                  <span className={clsx("text-[8.5px] font-mono uppercase tracking-wider",
-                    serverStatus === "ok" ? "text-[#00F5FF]" : serverStatus === "connecting" ? "text-amber-400" : "text-red-500")}>
-                    {serverStatus === "ok" ? "Surveillance active" : serverStatus === "connecting" ? "Connexion…" : "Hors ligne"}
-                  </span>
-                </div>
 
-                <div className="w-px h-5 mx-1" style={{ background: "rgba(255,255,255,0.07)" }} />
-                <StatChip label="Critiques" value={criticalCount} color="#FF1A3E" pulse />
-                <div className="w-px h-5 mx-1" style={{ background: "rgba(255,255,255,0.07)" }} />
-                <StatChip label="Élevés" value={highCount} color="#FFB800" />
-                <div className="w-px h-5 mx-1" style={{ background: "rgba(255,255,255,0.07)" }} />
-                <StatChip label="Pays" value={countryCount} color="#00F5FF" />
-                <div className="w-px h-5 mx-1" style={{ background: "rgba(255,255,255,0.07)" }} />
-                <StatChip label="Total 48h" value={recentAlerts.length} color="rgba(255,255,255,0.5)" />
+                <GlobeToolBtn
+                  active={showLeft}
+                  onClick={() => setShowLeft(p => !p)}
+                  icon={<Map className="w-3.5 h-3.5" />}
+                  label="Tensions"
+                />
+                <ToolDivider />
+                <GlobeToolBtn
+                  active={rightTab === "feed" && showRight}
+                  onClick={() => { setRightTab("feed"); setShowRight(p => rightTab === "feed" ? !p : true); }}
+                  icon={<List className="w-3.5 h-3.5" />}
+                  label="Alertes"
+                />
+                <GlobeToolBtn
+                  active={rightTab === "briefing" && showRight}
+                  onClick={() => { setRightTab("briefing"); setShowRight(p => rightTab === "briefing" ? !p : true); }}
+                  icon={<Brain className="w-3.5 h-3.5" />}
+                  label="Briefing"
+                />
+                <GlobeToolBtn
+                  active={rightTab === "chat" && showRight}
+                  onClick={() => { setRightTab("chat"); setShowRight(p => rightTab === "chat" ? !p : true); }}
+                  icon={<MessageSquare className="w-3.5 h-3.5" />}
+                  label="Analyste"
+                />
+                <ToolDivider />
+                <GlobeToolBtn
+                  active={!muted}
+                  onClick={() => { toggleMute(); setMuted(isMuted()); }}
+                  icon={muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                  label={muted ? "Muet" : "Son"}
+                />
               </div>
             </div>
 
-            {/* HUD top-right — clock + sources */}
-            <div className="absolute top-3 right-3 z-20 pointer-events-none">
-              <div className="rounded-xl px-3 py-2 text-right"
-                style={{ background: "rgba(4,6,12,0.82)", border: "1px solid rgba(255,255,255,0.07)", backdropFilter: "blur(16px)" }}>
-                <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#00F5FF] justify-end">
-                  <Clock className="w-3 h-3" />
-                  <span>{timeStr} <span className="text-white/30 text-[8px]">Paris</span></span>
-                </div>
-                <div className="flex items-center gap-1.5 mt-1 justify-end flex-wrap">
-                  {[
-                    { label: "GDELT",  color: "#FF6B00" },
-                    { label: "NASA",   color: "#FF8800" },
-                    { label: "USGS",   color: "#FFAA00" },
-                    { label: "RSS",    color: "#FFB800" },
-                    { label: "IA",     color: "#AA44FF" },
-                  ].map(s => (
-                    <span key={s.label} className="text-[7px] font-mono font-bold"
-                      style={{ color: s.color }}>{s.label}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
+            {/* Left panel toggle button */}
+            <button
+              onClick={() => setShowLeft(p => !p)}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-30 h-10 w-4 flex items-center justify-center rounded-r transition-colors"
+              style={{
+                background: "rgba(6,8,16,0.85)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderLeft: "none",
+              }}
+              title={showLeft ? "Masquer tensions" : "Afficher tensions"}>
+              {showLeft
+                ? <ChevronLeft className="w-2.5 h-2.5 text-white/30" />
+                : <ChevronRight className="w-2.5 h-2.5 text-white/30" />}
+            </button>
 
-            {/* Floating action buttons — bottom left of globe */}
-            <div className="absolute bottom-8 left-4 z-20 flex flex-col gap-1.5 pointer-events-auto">
-              <FabButton
-                active={showBriefing}
-                onClick={() => setShowBriefing(p => !p)}
-                icon={<Brain className="w-3.5 h-3.5" />}
-                label="Briefing IA"
-              />
-              <FabButton
-                active={showChat}
-                onClick={() => setShowChat(p => !p)}
-                icon={<MessageSquare className="w-3.5 h-3.5" />}
-                label="Analyste IA"
-              />
-              <FabButton
-                active={showTensions}
-                onClick={() => setShowTensions(p => !p)}
-                icon={<Map className="w-3.5 h-3.5" />}
-                label="Tensions"
-              />
-              <FabButton
-                active={showFeed}
-                onClick={() => setShowFeed(p => !p)}
-                icon={<List className="w-3.5 h-3.5" />}
-                label="Flux alertes"
-              />
-            </div>
-
-            {/* Floating briefing panel — overlaid on globe */}
-            {showBriefing && (
-              <div className="absolute top-16 left-4 z-20 w-72 pointer-events-auto"
-                style={{ maxHeight: "calc(100% - 5rem)" }}>
-                <div className="rounded-xl overflow-hidden h-full flex flex-col"
-                  style={{ background: "rgba(4,6,12,0.92)", border: "1px solid rgba(0,245,255,0.18)", backdropFilter: "blur(20px)", maxHeight: "70vh" }}>
-                  <div className="flex items-center justify-between px-3 py-2 shrink-0"
-                    style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                    <div className="flex items-center gap-2">
-                      <Brain className="w-3.5 h-3.5 text-[#00F5FF]" />
-                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-[#00F5FF]">Briefing Stratégique</span>
-                    </div>
-                    <button onClick={() => setShowBriefing(false)} className="text-white/20 hover:text-white/60 transition-colors text-xs p-1 rounded">✕</button>
-                  </div>
-                  <div className="flex-1 overflow-y-auto">
-                    <AiSummaryPanel headless />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* AI Chat panel */}
-            {showChat && (
-              <div className="absolute top-16 left-4 z-20 w-80 pointer-events-auto"
-                style={{ maxHeight: "calc(100% - 5rem)" }}>
-                <div className="rounded-xl overflow-hidden flex flex-col"
-                  style={{ height: "70vh", background: "rgba(4,6,12,0.92)", border: "1px solid rgba(170,68,255,0.25)", backdropFilter: "blur(20px)" }}>
-                  <div className="flex items-center justify-between px-3 py-2 shrink-0"
-                    style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="w-3.5 h-3.5 text-violet-400" />
-                      <span className="text-[9px] font-black uppercase tracking-[0.15em] text-violet-400">Analyste IA</span>
-                    </div>
-                    <button onClick={() => setShowChat(false)} className="text-white/20 hover:text-white/60 transition-colors text-xs p-1 rounded">✕</button>
-                  </div>
-                  <div className="flex-1 overflow-hidden">
-                    <AiChat />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Bottom center hint */}
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-              <span className="text-[7.5px] font-mono text-white/15 uppercase tracking-widest">
-                Cliquer pays · Cliquer point · FAB = panneaux
-              </span>
-            </div>
+            {/* Right panel toggle button */}
+            <button
+              onClick={() => setShowRight(p => !p)}
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-30 h-10 w-4 flex items-center justify-center rounded-l transition-colors"
+              style={{
+                background: "rgba(6,8,16,0.85)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRight: "none",
+              }}
+              title={showRight ? "Masquer panneau" : "Afficher panneau"}>
+              {showRight
+                ? <ChevronRight className="w-2.5 h-2.5 text-white/30" />
+                : <ChevronLeft className="w-2.5 h-2.5 text-white/30" />}
+            </button>
           </div>
 
-          {/* ── RIGHT — Alert feed (collapsible) ─────────────────────────── */}
-          {showFeed && (
-            <div className="h-full z-20 flex-shrink-0">
-              <AlertFeed onHide={() => setShowFeed(false)} />
-            </div>
-          )}
+          {/* ── RIGHT — Tabbed panel ────────────────────────────────────── */}
+          <div className={clsx(
+            "h-full transition-all duration-300 ease-in-out overflow-hidden shrink-0 flex flex-col",
+            showRight ? "w-[340px]" : "w-0"
+          )} style={{ borderLeft: "1px solid rgba(255,255,255,0.06)" }}>
+            {showRight && (
+              <div className="flex flex-col h-full min-h-0 panel-enter"
+                style={{ background: "rgba(6,8,16,0.95)" }}>
+
+                {/* Tab bar */}
+                <div className="flex shrink-0"
+                  style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <TabBtn
+                    active={rightTab === "feed"}
+                    onClick={() => setRightTab("feed")}
+                    icon={<List className="w-3.5 h-3.5" />}
+                    label="Alertes"
+                    badge={criticalCount > 0 ? String(criticalCount) : undefined}
+                    badgeColor="#F02D3A"
+                  />
+                  <TabBtn
+                    active={rightTab === "briefing"}
+                    onClick={() => setRightTab("briefing")}
+                    icon={<Brain className="w-3.5 h-3.5" />}
+                    label="Briefing"
+                  />
+                  <TabBtn
+                    active={rightTab === "chat"}
+                    onClick={() => setRightTab("chat")}
+                    icon={<MessageSquare className="w-3.5 h-3.5" />}
+                    label="Analyste"
+                  />
+                </div>
+
+                {/* Tab content */}
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  {rightTab === "feed" && (
+                    <AlertFeed />
+                  )}
+                  {rightTab === "briefing" && (
+                    <div className="h-full overflow-y-auto scrollbar-thin">
+                      <AiSummaryPanel headless />
+                    </div>
+                  )}
+                  {rightTab === "chat" && (
+                    <div className="h-full overflow-hidden">
+                      <AiChat />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
         </div>
       </AppLayout>
     </>
   );
 }
 
-function FabButton({
-  active, onClick, icon, label,
-}: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+// ── Sub-components ──────────────────────────────────────────────────────────
+
+function Divider() {
+  return <div className="w-px h-4 mx-1" style={{ background: "rgba(255,255,255,0.07)" }} />;
+}
+
+function ToolDivider() {
+  return <div className="w-px h-5 mx-1" style={{ background: "rgba(255,255,255,0.08)" }} />;
+}
+
+function StatPill({ value, label, color, pulse }: { value: number; label: string; color: string; pulse?: boolean }) {
+  return (
+    <div className="flex items-center gap-1 px-2">
+      <span className="text-[11px] font-bold font-mono tabular-nums" style={{ color }}>
+        {value}
+      </span>
+      {pulse && value > 0 && (
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: color }} />
+          <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: color }} />
+        </span>
+      )}
+      <span className="text-[8px] font-mono uppercase tracking-wider text-white/25">{label}</span>
+    </div>
+  );
+}
+
+function StatusPill({ status }: { status: string }) {
+  return (
+    <div className="flex items-center gap-1.5 px-2">
+      {status === "ok" && <span className="live-dot live-dot-cyan" style={{ width: 5, height: 5 }} />}
+      {status === "connecting" && <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />}
+      {status === "error" && <WifiOff className="w-3 h-3 text-red-500" />}
+      <span className={clsx("text-[9px] font-mono uppercase tracking-widest",
+        status === "ok" ? "text-[#00C8D4]" : status === "connecting" ? "text-amber-400" : "text-red-500")}>
+        {status === "ok" ? "Live" : status === "connecting" ? "Sync" : "Off"}
+      </span>
+    </div>
+  );
+}
+
+function GlobeToolBtn({ active, onClick, icon, label }: {
+  active: boolean; onClick: () => void; icon: React.ReactNode; label: string;
+}) {
   return (
     <button
       onClick={onClick}
       title={label}
-      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all duration-200 group"
+      className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-medium transition-all duration-150"
       style={{
-        background: active ? "rgba(0,245,255,0.12)" : "rgba(4,6,12,0.75)",
-        border: `1px solid ${active ? "rgba(0,245,255,0.3)" : "rgba(255,255,255,0.08)"}`,
-        backdropFilter: "blur(12px)",
-        color: active ? "#00F5FF" : "rgba(255,255,255,0.35)",
-        boxShadow: active ? "0 0 12px rgba(0,245,255,0.12)" : "none",
+        color:      active ? "#00C8D4" : "rgba(255,255,255,0.35)",
+        background: active ? "rgba(0,200,212,0.10)" : "transparent",
+        border:     active ? "1px solid rgba(0,200,212,0.22)" : "1px solid transparent",
       }}>
-      <span className={active ? "text-[#00F5FF]" : "text-white/35"}>{icon}</span>
+      <span style={{ color: active ? "#00C8D4" : "rgba(255,255,255,0.30)" }}>{icon}</span>
+      <span className="hidden lg:block">{label}</span>
+    </button>
+  );
+}
+
+function TabBtn({ active, onClick, icon, label, badge, badgeColor }: {
+  active: boolean; onClick: () => void; icon: React.ReactNode; label: string;
+  badge?: string; badgeColor?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={clsx(
+        "flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[11px] font-medium transition-all duration-150 relative",
+        active ? "text-[#00C8D4]" : "text-white/30 hover:text-white/55"
+      )}
+      style={active ? { borderBottom: "2px solid #00C8D4" } : { borderBottom: "2px solid transparent" }}>
+      <span style={{ color: active ? "#00C8D4" : undefined }}>{icon}</span>
       <span>{label}</span>
+      {badge && (
+        <span className="text-[8px] font-bold font-mono px-1 py-px rounded"
+          style={{ background: `${badgeColor}20`, color: badgeColor, border: `1px solid ${badgeColor}40` }}>
+          {badge}
+        </span>
+      )}
     </button>
   );
 }
