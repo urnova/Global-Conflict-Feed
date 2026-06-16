@@ -26,13 +26,13 @@ import { useAlerts } from '@/hooks/use-alerts';
 import { useCountryTension } from '@/hooks/use-country-tension';
 import { useLanguage } from '@/contexts/language-context';
 import { parseSourceBadge } from '@/lib/source-badge';
-import { X, Crosshair, Volume2, VolumeX, Brain, Flame, List } from 'lucide-react';
+import { X, Crosshair } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { clsx } from 'clsx';
 import type { Alert } from '@shared/schema';
 import {
   soundMultipleLaunches,
-  isMuted, toggleMute,
+  isMuted,
 } from '@/lib/sounds';
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -112,14 +112,8 @@ interface GlobeViewProps {
 
 }
 
-function GlobeViewInner({ focusCountryCode, focusLat, focusLng, onToggleBriefing, showBriefing, onToggleTensions, showTensions, onToggleFeed, showFeed }: GlobeViewProps) {
+function GlobeViewInner({ focusCountryCode, focusLat, focusLng }: GlobeViewProps) {
   const { t } = useLanguage();
-  const [muted, setMutedState] = useState(isMuted());
-
-  const handleToggleMute = () => {
-    const nowMuted = toggleMute();
-    setMutedState(nowMuted);
-  };
 
   const globeEl = useRef<any>();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -471,42 +465,13 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng, onToggleBriefing
         );
       })()}
 
-      {/* HUD — coordinates + mute toggle + chat toggle */}
-      <div className="absolute bottom-6 left-6 z-20 font-mono text-[10px] text-primary/60 space-y-0.5">
-        {/* Panel toggles — stacked above coords */}
-        {[
-          { show: showTensions, onToggle: onToggleTensions, Icon: Flame,         label: 'Tensions' },
-          { show: showFeed,     onToggle: onToggleFeed,     Icon: List,          label: 'Flux alertes' },
-          { show: showBriefing, onToggle: onToggleBriefing, Icon: Brain,         label: 'Briefing IA' },
-
-        ].map(({ show, onToggle, Icon, label }) => onToggle ? (
-          <button
-            key={label}
-            onClick={onToggle}
-            className="flex items-center gap-1.5 text-[9px] font-mono px-2 py-1 rounded border transition-colors pointer-events-auto"
-            style={{
-              background: show ? 'rgba(0,240,255,0.12)' : 'rgba(0,0,0,0.4)',
-              borderColor: show ? 'rgba(0,240,255,0.35)' : 'rgba(255,255,255,0.10)',
-              color: show ? '#00F0FF' : '#555',
-            }}
-          >
-            <Icon className="w-3 h-3" />
-            <span>{label}</span>
-          </button>
-        ) : null)}
-        <div className="pointer-events-none">{t.hud.lat} {coords.lat.toFixed(4)}°</div>
-        <div className="pointer-events-none">{t.hud.lng} {coords.lng.toFixed(4)}°</div>
-        <div className="pointer-events-none text-primary/40 pt-1">{t.hud.version}</div>
-        <div className="flex items-center gap-1.5 mt-1">
-          <button
-            onClick={handleToggleMute}
-            className="flex items-center gap-1.5 text-[9px] font-mono px-2 py-1 rounded border border-white/10 bg-black/40 hover:border-primary/40 transition-colors pointer-events-auto"
-          >
-            {muted
-              ? <><VolumeX className="w-3 h-3 text-muted-foreground/50" /><span className="text-muted-foreground/50">{t.hud.soundOff}</span></>
-              : <><Volume2 className="w-3 h-3 text-primary/70" /><span className="text-primary/70">{t.hud.soundOn}</span></>
-            }
-          </button>
+      {/* HUD — coordonnées + version (bas gauche) */}
+      <div className="pointer-events-none absolute bottom-20 left-4 z-20 font-mono text-[9px] space-y-0.5"
+        style={{ color: "rgba(0,200,212,0.45)" }}>
+        <div>LAT {coords.lat.toFixed(4)}°</div>
+        <div>LNG {coords.lng.toFixed(4)}°</div>
+        <div className="pt-0.5" style={{ color: "rgba(0,200,212,0.25)", letterSpacing: "0.12em" }}>
+          ARGOS INTELLIGENCE V7
         </div>
       </div>
 

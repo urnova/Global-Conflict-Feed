@@ -705,29 +705,40 @@ function ISSDetail({ onBack }: { onBack: () => void }) {
       {/* Main layout: Live feed + sidebar */}
       <div className="flex gap-4 flex-col lg:flex-row flex-1 min-h-0">
 
-        {/* NASA ISS YouTube live feed */}
+        {/* NASA ISS live feed (NASA TV via Ustream embed) */}
         <div className="flex-1 min-w-0 flex flex-col gap-3">
           <div className="relative w-full rounded-2xl overflow-hidden border border-primary/20"
-            style={{ paddingBottom: '56.25%' }}>
+            style={{ paddingBottom: '56.25%', background: 'rgba(0,0,0,0.6)' }}>
             <iframe
-              src="https://www.youtube.com/embed/P57pHPzj4qU?autoplay=1&mute=1&controls=1"
+              src="https://www.ustream.tv/embed/17074538?html5ui=1&autoplay=true&mute=true"
               className="absolute inset-0 w-full h-full"
               frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
-              title="NASA ISS Live"
+              title="NASA ISS Live — Ustream"
             />
             <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-red-600/90 px-2 py-1 rounded-lg pointer-events-none">
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
               <span className="text-[8px] font-bold text-white uppercase tracking-wider">EN DIRECT</span>
             </div>
-            <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md px-3 py-2 rounded-xl pointer-events-none">
-              <div className="text-[10px] font-bold text-white">Vue depuis l'ISS</div>
-              {iss && (
-                <div className="text-[8px] font-mono text-primary/70 mt-0.5">
-                  {iss.lat.toFixed(2)}° {iss.lng.toFixed(2)}° · Alt {Math.round(iss.altitude)} km
-                </div>
-              )}
+            {/* Fallback overlay if embed unavailable */}
+            <div className="absolute bottom-3 left-3 right-3 pointer-events-none flex items-end justify-between">
+              <div className="bg-black/70 backdrop-blur-md px-3 py-2 rounded-xl">
+                <div className="text-[10px] font-bold text-white">Vue depuis l'ISS · NASA TV</div>
+                {iss && (
+                  <div className="text-[8px] font-mono text-primary/70 mt-0.5">
+                    {iss.lat.toFixed(2)}° {iss.lng.toFixed(2)}° · Alt {Math.round(iss.altitude)} km
+                  </div>
+                )}
+              </div>
+              <a
+                href="https://www.nasa.gov/nasatv/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 bg-black/70 backdrop-blur-md px-3 py-2 rounded-xl text-[9px] font-mono text-primary/70 hover:text-primary transition-colors pointer-events-auto"
+              >
+                <ExternalLink className="w-3 h-3" />
+                NASA TV
+              </a>
             </div>
           </div>
 
