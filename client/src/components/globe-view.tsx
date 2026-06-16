@@ -357,50 +357,27 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng }: GlobeViewProps
         };
       });
 
-    // HTML layer: alert flag pins — must produce real DOM elements (not strings)
-    // react-globe.gl CSS2DObject expects HTMLElement, not HTML string
-    const htmlElementsData = recentAlerts.map(a => {
+    // WebGL points layer — always correctly positioned (no CSS2DRenderer issues)
+    const pointsData = recentAlerts.map(a => {
+      const isCritical = a.severity === 'critical';
       const cat = (a as any).category ?? '';
       const catColor = CAT_PIN_COLORS[cat?.toUpperCase()] ?? null;
       const color = catColor ?? severityColor(a.severity);
-      const icon = TYPE_ICONS[a.type] || '⚠️';
-      const flagHtml = isoToFlagHtml(a.countryCode || '');
-      const isCritical = a.severity === 'critical';
-      const pinSize = isCritical ? 28 : 22;
-      const glowSize = isCritical ? '0 0 16px' : '0 0 8px';
-
-      const el = document.createElement('div');
-      el.setAttribute('data-alert-id', String(a.id));
-      el.style.cssText = `
-        display:flex;flex-direction:column;align-items:center;
-        cursor:pointer;pointer-events:auto;user-select:none;
-        ${isCritical ? 'animation:pulse 1s ease-in-out infinite alternate;' : ''}
-      `;
-      el.innerHTML = `
-        <div style="
-          width:${pinSize}px;height:${pinSize}px;border-radius:50%;
-          background:rgba(0,0,0,0.82);
-          border:2px solid ${color};
-          box-shadow:${glowSize} ${color};
-          display:flex;align-items:center;justify-content:center;
-          font-size:${pinSize * 0.52}px;line-height:1;
-        ">${icon}</div>
-        <div style="width:1.5px;height:6px;background:${color};opacity:0.7;"></div>
-        <div>${flagHtml}</div>
-      `;
-      el.addEventListener('click', () => {
-        window.dispatchEvent(new CustomEvent('globe-alert-click', { detail: a.id }));
-      });
-
       return {
-        lat: Number(a.lat), lng: Number(a.lng),
-        el,
-        altitude: 0.02,
+        lat: Number(a.lat),
+        lng: Number(a.lng),
+        altitude: isCritical ? 0.07 : 0.04,
+        color,
+        radius: isCritical ? 0.6 : 0.38,
         alertId: a.id,
+        country: a.country ?? '',
+        type: a.type ?? '',
+        title: (a as any).aiLabel ?? a.title ?? '',
+        severity: a.severity,
       };
     });
 
-    return { ringsData, arcsData, htmlElementsData };
+    return { ringsData, arcsData, pointsData };
   }, [alerts]);
 
   const handleCountryClick = useCallback((polygon: any) => {
@@ -530,9 +507,25 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng }: GlobeViewProps
           arcDashAnimateTime="dashAnimateTime"
           arcAltitude="altitude"
 
-          htmlElementsData={globeData.htmlElementsData}
-          htmlElement={(d: any) => d.el}
-          htmlAltitude="altitude"
+          pointsData={globeData.pointsData}
+          pointLat="lat"
+          pointLng="lng"
+          pointAltitude="altitude"
+          pointColor="color"
+          pointRadius="radius"
+          pointsMerge={false}
+          onPointClick={(point: any) => {
+            window.dispatchEvent(new CustomEvent('globe-alert-click', { detail: point.alertId }));
+          }}
+          pointLabel={(d: any) => {
+            const sevColor = d.severity === 'critical' ? '#FF1A3E' : '#FFB800';
+            const icon = (TYPE_ICONS as any)[d.type] || '⚠️';
+            return `<div style="font-family:'JetBrains Mono',monospace;font-size:10px;background:rgba(3,5,12,0.92);padding:5px 9px;border-radius:7px;border:1px solid ${sevColor}40;box-shadow:0 4px 16px rgba(0,0,0,0.7);pointer-events:none;max-width:200px">
+              <div style="color:${sevColor};font-weight:800;font-size:8px;letter-spacing:0.1em;margin-bottom:2px">${icon} ${d.severity?.toUpperCase()}</div>
+              <div style="color:rgba(255,255,255,0.9);font-size:10px;line-height:1.3">${d.title || d.country}</div>
+              ${d.country ? `<div style="color:rgba(255,255,255,0.35);font-size:8px;margin-top:2px">${d.country}</div>` : ''}
+            </div>`;
+          }}
 
           atmosphereColor="#00F0FF"
           atmosphereAltitude={0.18}

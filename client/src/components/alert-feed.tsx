@@ -214,7 +214,7 @@ export function AlertFeed({ mobile = false }: { mobile?: boolean }) {
   const [activeRegion,  setActiveRegion]  = useState("ALL");
   const [search,        setSearch]        = useState("");
   const [showFilters,   setShowFilters]   = useState(false);
-  const [sortBy,        setSortBy]        = useState<SortBy>("severity");
+  const [sortBy,        setSortBy]        = useState<SortBy>("time");
   const prevIdsRef = useRef<Set<number>>(new Set());
 
   // Track new alerts for flash animation
