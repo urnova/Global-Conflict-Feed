@@ -294,13 +294,35 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng }: GlobeViewProps
       return !isNaN(n) && isFinite(n);
     };
 
-    // 4h filter + only critical/high + valid coords — keep globe readable and CSS2DObject safe
-    const H4 = 4 * 60 * 60 * 1000;
-    const recentAlerts = alerts.filter(a =>
+    // 3h filter + critical/high + valid coords
+    const H3 = 3 * 60 * 60 * 1000;
+    const validAlerts = alerts.filter(a =>
       (a.severity === 'critical' || a.severity === 'high') &&
-      (!a.timestamp || (now - new Date(a.timestamp).getTime()) < H4) &&
+      (!a.timestamp || (now - new Date(a.timestamp).getTime()) < H3) &&
       isValidCoord(a.lat) && isValidCoord(a.lng)
     );
+
+    // Deduplicate by country — keep only the most severe/recent alert per country
+    // This prevents the globe from being "polluted" with dozens of overlapping markers
+    const SEV_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+    const byCountry = new Map<string, typeof validAlerts[0]>();
+    for (const a of validAlerts) {
+      const key = a.countryCode ?? `${Number(a.lat).toFixed(1)},${Number(a.lng).toFixed(1)}`;
+      const existing = byCountry.get(key);
+      if (!existing) { byCountry.set(key, a); continue; }
+      const rankA = SEV_RANK[a.severity] ?? 9;
+      const rankE = SEV_RANK[existing.severity] ?? 9;
+      if (rankA < rankE) { byCountry.set(key, a); continue; }
+      if (rankA === rankE) {
+        const tA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const tE = existing.timestamp ? new Date(existing.timestamp).getTime() : 0;
+        if (tA > tE) byCountry.set(key, a);
+      }
+    }
+    // Max 30 markers total: critical first, then high
+    const recentAlerts = [...byCountry.values()]
+      .sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9))
+      .slice(0, 30);
 
     // ── Rings — impact zones with severity-based pulse ──────────────────────
     const ringsData = recentAlerts.map((a: typeof alerts[0]) => {

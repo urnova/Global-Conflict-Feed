@@ -13,15 +13,67 @@ import { useState, useEffect, useRef } from "react";
 import { parseSourceBadge } from "@/lib/source-badge";
 import type { Alert } from "@shared/schema";
 
+// ── Country code normalizer (GDELT/CAMEO → ISO 3166-1 alpha-2) ──────────────
+const GDELT_TO_ISO: Record<string, string> = {
+  VM: "vn", RP: "ph", BU: "mm", IZ: "iq", JA: "jp", UK: "gb",
+  UP: "ua", SF: "za", IV: "ci", YM: "ye", TU: "tr", EZ: "cz",
+  GM: "de", SU: "sd", RS: "rs", CG: "cd", MO: "ma", GK: "gg",
+  WI: "aw", CH: "cn", TO: "tg", MA: "mr", PO: "pt", SP: "es",
+  SI: "si", SL: "sl", LE: "lb", MU: "mr", DR: "do", VI: "vi",
+  AA: "an", AC: "ag", AE: "ae", AG: "dz", AJ: "az", AL: "al",
+  AM: "am", AN: "ao", AO: "ao", AR: "ar", AS: "au", AU: "au",
+  BA: "ba", BB: "bb", BC: "bw", BE: "be", BF: "bs", BG: "bg",
+  BH: "bz", BI: "bi", BK: "ba", BL: "bo", BN: "bn", BO: "bo",
+  BP: "sb", BR: "br", BT: "bt", BY: "by", CA: "ca", CB: "kh",
+  CD: "td", CE: "lk", CF: "cf", CJ: "kp", CK: "cc", CM: "cm",
+  CN: "km", CO: "co", CS: "cr", CT: "ca", CV: "cv", CY: "cy",
+  DA: "dk", DJ: "dj", DO: "dm", EC: "ec", EG: "eg", EI: "ie",
+  EK: "gq", EN: "ee", ER: "er", ET: "et", FI: "fi", FJ: "fj",
+  FM: "fm", FR: "fr", GA: "gm", GB: "ga", GG: "ge", GH: "gh",
+  GI: "gi", GL: "gl", GQ: "gr", GR: "gr", GT: "gt", GV: "gn",
+  GY: "gy", HA: "ht", HK: "hk", HO: "hn", HR: "hr", HU: "hu",
+  IC: "is", ID: "id", IN: "in", IR: "ir", IS: "il", IT: "it",
+  JM: "jm", JO: "jo", KE: "ke", KG: "kg", KN: "kn", KS: "xk",
+  KU: "kw", KZ: "kz", LA: "la", LG: "lv", LI: "lr", LO: "sk",
+  LS: "ls", LT: "lt", LU: "lu", LY: "ly", MD: "md", MF: "mg",
+  MG: "mg", MI: "mw", MK: "mk", ML: "ml", MN: "mn", MP: "mv",
+  MR: "mr", MT: "mt", MW: "mw", MX: "mx", MY: "my", MZ: "mz",
+  NA: "na", NC: "nc", NE: "ng", NI: "ni", NL: "nl", NO: "no",
+  NP: "np", NR: "nr", NZ: "nz", OC: "at", PA: "py", PE: "pe",
+  PF: "pf", PG: "pg", PH: "ph", PK: "pk", PL: "pl", PM: "pa",
+  PP: "pw", PS: "ps", PU: "gw", QA: "qa", RE: "re", RH: "zw",
+  RM: "ro", RO: "ro", RU: "ru", RW: "rw", SA: "sa", SB: "sb",
+  SC: "sc", SE: "sn", SG: "sg", SM: "sm", SN: "sn", SO: "so",
+  SR: "sr", ST: "st", SW: "se", SY: "sy", SZ: "sz", TD: "td",
+  TH: "th", TI: "tj", TK: "tm", TL: "tl", TN: "tn", TS: "tn",
+  TP: "tr", TZ: "tz", UG: "ug", US: "us", UY: "uy", UZ: "uz",
+  VE: "ve", VT: "vn", WA: "na", WS: "ws", YA: "ye", ZA: "zm",
+  ZI: "zw", ZM: "zm",
+};
+
+function normalizeIso(code: string): string {
+  const upper = code.toUpperCase();
+  return GDELT_TO_ISO[upper] ?? code.toLowerCase();
+}
+
 // ── Flag ────────────────────────────────────────────────────────────────────
 function FlagImg({ code }: { code?: string | null }) {
-  if (!code || code.length !== 2) return <Globe2 className="w-3 h-3 text-white/20" />;
+  if (!code || code.length < 2) return <Globe2 className="w-3 h-3 text-white/20" />;
+  const iso = normalizeIso(code);
   return (
     <img
-      src={`https://flagcdn.com/20x15/${code.toLowerCase()}.png`}
-      srcSet={`https://flagcdn.com/40x30/${code.toLowerCase()}.png 2x`}
+      src={`https://flagcdn.com/20x15/${iso}.png`}
+      srcSet={`https://flagcdn.com/40x30/${iso}.png 2x`}
       width="20" height="15" alt={code}
       className="rounded-sm shrink-0 opacity-80"
+      onError={(e) => {
+        const el = e.currentTarget;
+        el.style.display = "none";
+        const badge = document.createElement("span");
+        badge.textContent = code.toUpperCase().slice(0, 2);
+        badge.style.cssText = "display:inline-flex;align-items:center;justify-content:center;width:20px;height:15px;border-radius:2px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.35);font-size:7px;font-family:monospace;font-weight:700;letter-spacing:0.05em;flex-shrink:0;";
+        el.parentNode?.insertBefore(badge, el.nextSibling);
+      }}
     />
   );
 }
