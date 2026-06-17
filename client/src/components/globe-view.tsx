@@ -643,8 +643,11 @@ function AlertPopup({ alert: a, onClose, t }: { alert: Alert; onClose: () => voi
   const emoji = TYPE_ICONS[a.type] || '⚠️';
   const badge = parseSourceBadge((a as any).source, (a as any).sourceType);
   const isInfo = INFO_TYPES.has(a.type);
-  const isPending = (a as any).aiVerified === null || (a as any).aiVerified === undefined;
   const aiLabel = (a as any).aiLabel as string | null | undefined;
+  // "Vérifié IA" only when Groq actually classified the alert (aiLabel present)
+  // alerts from USGS/NOAA/etc. have aiVerified:true but no aiLabel → "Source officielle"
+  const groqVerified = !!aiLabel;
+  const isPending = !groqVerified && ((a as any).aiVerified === null || (a as any).aiVerified === undefined);
 
   // Toujours en français — aiLabel (Groq) comme titre, description FR comme corps
   const displayTitle = aiLabel ?? a.title;
@@ -721,13 +724,23 @@ function AlertPopup({ alert: a, onClose, t }: { alert: Alert; onClose: () => voi
               <span>{badge.name}</span>
             </span>
 
-            {/* AI verification badge */}
-            <span className="px-1.5 py-0.5 rounded font-bold"
-              style={isPending
-                ? { background: 'rgba(0,240,255,0.1)', color: '#00F0FF' }
-                : { background: `${color}15`, color }}>
-              {isPending ? t.popup.pending : t.popup.verified}
-            </span>
+            {/* AI / source verification badge */}
+            {groqVerified ? (
+              <span className="px-1.5 py-0.5 rounded font-bold"
+                style={{ background: `${color}15`, color }}>
+                {t.popup.verified}
+              </span>
+            ) : isPending ? (
+              <span className="px-1.5 py-0.5 rounded font-bold"
+                style={{ background: 'rgba(0,240,255,0.08)', color: 'rgba(0,240,255,0.5)' }}>
+                {t.popup.pending}
+              </span>
+            ) : (
+              <span className="px-1.5 py-0.5 rounded font-bold"
+                style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }}>
+                API officielle
+              </span>
+            )}
 
             {/* Source link */}
             {(a as any).source && (

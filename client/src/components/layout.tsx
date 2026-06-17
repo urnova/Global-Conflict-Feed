@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Globe, History, Tv, Radio, BookOpen, Wifi, WifiOff, Loader2, Clock } from "lucide-react";
+import { Globe, History, Satellite, Radio, BookOpen, Wifi, WifiOff, Loader2, Clock } from "lucide-react";
 import { clsx } from "clsx";
 import { useServerStatus } from "@/hooks/use-server-status";
 import { useAlerts } from "@/hooks/use-alerts";
@@ -9,7 +9,7 @@ import { useState, useEffect } from "react";
 const NAV_ITEMS = [
   { href: "/",        icon: Globe,   label: "Globe"      },
   { href: "/history", icon: History, label: "Historique" },
-  { href: "/live",    icon: Tv,      label: "Live"       },
+  { href: "/live",    icon: Satellite, label: "Espace"     },
   { href: "/radio",   icon: Radio,   label: "Radio"      },
   { href: "/guide",   icon: BookOpen,label: "Guide"      },
 ];

@@ -1,16 +1,16 @@
 /**
- * LiveView — Argos V6.2 : Situation Room
- * Drill-down 3 niveaux : galerie pays → galerie villes → dashboard caméra
- * ISS tracker + NASA YouTube live, EarthCam, météo wttr.in
- * Recommandations dynamiques basées sur les alertes temps réel
+ * LiveView (Espace) — Argos V7
+ * Stations spatiales ISS + Tiangong en temps réel + calendrier lancements
+ * NASA EPIC Earth imagery · Launch Library 2 API · wheretheiss.at
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { AppLayout } from "@/components/layout";
 import { useAlerts } from "@/hooks/use-alerts";
 import {
   Satellite, ArrowLeft, Thermometer, Wind, Eye, Clock,
   AlertTriangle, Zap, MapPin, Search, ExternalLink, Video, VideoOff,
+  Rocket, RefreshCw, Globe2, Play, Calendar,
 } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -49,6 +49,21 @@ interface Weather {
 }
 
 type ViewLevel = 'countries' | 'cities' | 'dashboard' | 'iss' | 'tiangong';
+type SpaceTab = 'iss' | 'tiangong' | 'launches';
+
+// ── Launch Library 2 types ─────────────────────────────────────────────────────
+
+interface Launch {
+  id: string;
+  name: string;
+  net: string;
+  status: { id: number; name: string; abbrev: string };
+  rocket: { configuration: { name: string; full_name: string } };
+  launch_service_provider: { name: string; type: string };
+  mission: { name: string; description: string; orbit: { name: string } } | null;
+  links: { webcast: string | null; webcast_live: boolean; image: string | null };
+  pad: { name: string; location: { name: string } };
+}
 
 // ── Catalogue des pays et villes ──────────────────────────────────────────────
 
@@ -249,6 +264,77 @@ function epicUrl(img: EpicImage): string {
   const d = img.date.split(' ')[0];
   const [y, m, day] = d.split('-');
   return `https://epic.gsfc.nasa.gov/archive/natural/${y}/${m}/${day}/jpg/${img.image}.jpg`;
+}
+
+// ── Launch Library 2 Hook ─────────────────────────────────────────────────────
+
+const AGENCY_COLOR: Record<string, string> = {
+  'SpaceX': '#005288', 'NASA': '#0B3D91', 'ESA': '#003299',
+  'CNSA': '#DE2910', 'Roscosmos': '#003F87', 'United Launch Alliance': '#2E5AA8',
+  'Rocket Lab': '#E60012', 'ISRO': '#FF6B00', 'JAXA': '#003087',
+  'Arianespace': '#0055A5', 'Blue Origin': '#1D4060',
+};
+
+function agencyColor(name: string): string {
+  for (const [k, v] of Object.entries(AGENCY_COLOR)) {
+    if (name.toLowerCase().includes(k.toLowerCase())) return v;
+  }
+  return '#334155';
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  'Go': '#22c55e', 'TBC': '#FFB800', 'TBD': '#64748b',
+  'Success': '#16a34a', 'Failure': '#FF003C', 'Hold': '#f97316',
+  'In Flight': '#00F0FF',
+};
+
+function formatCountdown(netStr: string): { label: string; ms: number } {
+  const ms = new Date(netStr).getTime() - Date.now();
+  if (ms < 0) return { label: 'Lancé', ms };
+  const d = Math.floor(ms / 86400000);
+  const h = Math.floor((ms % 86400000) / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  if (d > 30) return { label: `J-${d}`, ms };
+  if (d > 0) return { label: `J-${d} ${h}h`, ms };
+  if (h > 0) return { label: `${h}h ${m}m`, ms };
+  if (m > 0) return { label: `${m}m ${s}s`, ms };
+  return { label: `${s}s`, ms };
+}
+
+function extractYouTubeId(url: string | null): string | null {
+  if (!url) return null;
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|live\/))([A-Za-z0-9_-]{11})/);
+  return m?.[1] ?? null;
+}
+
+function useLaunches() {
+  const [upcoming, setUpcoming] = useState<Launch[]>([]);
+  const [previous, setPrevious] = useState<Launch[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [upRes, prevRes] = await Promise.all([
+        fetch('https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=20&format=json'),
+        fetch('https://ll.thespacedevs.com/2.2.0/launch/previous/?limit=10&format=json&ordering=-net'),
+      ]);
+      if (upRes.ok) setUpcoming((await upRes.json()).results ?? []);
+      if (prevRes.ok) setPrevious((await prevRes.json()).results ?? []);
+      setLastRefresh(new Date());
+    } catch {}
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchAll();
+    const t = setInterval(fetchAll, 3600 * 1000);
+    return () => clearInterval(t);
+  }, [fetchAll]);
+
+  return { upcoming, previous, loading, lastRefresh, refresh: fetchAll };
 }
 
 function useWeather(lat: number, lng: number, enabled: boolean) {
@@ -730,7 +816,7 @@ function OrbitalStats({ sat, accentColor }: { sat: ISSData; accentColor: string 
 
 // ── ISS Detail ────────────────────────────────────────────────────────────────
 
-function ISSDetail({ onBack }: { onBack: () => void }) {
+function ISSDetail({ onBack }: { onBack?: () => void }) {
   const { data: alerts } = useAlerts();
   const iss = useISSTracker();
   const { images, loading: epicLoading } = useEpicImages();
@@ -767,11 +853,15 @@ function ISSDetail({ onBack }: { onBack: () => void }) {
     <div className="flex flex-col gap-4 h-full">
       {/* Header */}
       <div className="flex items-center gap-3 shrink-0">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-[10px] font-mono text-white/40 hover:text-primary transition-colors">
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Retour
-        </button>
-        <div className="w-px h-4 bg-white/10" />
+        {onBack && (
+          <>
+            <button onClick={onBack} className="flex items-center gap-1.5 text-[10px] font-mono text-white/40 hover:text-primary transition-colors">
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Retour
+            </button>
+            <div className="w-px h-4 bg-white/10" />
+          </>
+        )}
         <Satellite className="w-4 h-4 text-primary" style={{ animation: 'spin-slow 6s linear infinite' }} />
         <span className="text-sm font-bold text-white">Station Spatiale Internationale · ISS</span>
         <span className="text-[7px] font-black px-1.5 py-0.5 rounded border border-primary/30 text-primary bg-primary/10">LIVE</span>
@@ -956,7 +1046,7 @@ function ISSDetail({ onBack }: { onBack: () => void }) {
 
 // ── Tiangong Detail ────────────────────────────────────────────────────────────
 
-function TiangongDetail({ onBack }: { onBack: () => void }) {
+function TiangongDetail({ onBack }: { onBack?: () => void }) {
   const { data: alerts } = useAlerts();
   const sat = useTiangongTracker();
   const ACCENT = '#FF4500';
@@ -970,11 +1060,15 @@ function TiangongDetail({ onBack }: { onBack: () => void }) {
     <div className="flex flex-col gap-4 h-full">
       {/* Header */}
       <div className="flex items-center gap-3 shrink-0">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-[10px] font-mono text-white/40 hover:text-primary transition-colors">
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Retour
-        </button>
-        <div className="w-px h-4 bg-white/10" />
+        {onBack && (
+          <>
+            <button onClick={onBack} className="flex items-center gap-1.5 text-[10px] font-mono text-white/40 hover:text-primary transition-colors">
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Retour
+            </button>
+            <div className="w-px h-4 bg-white/10" />
+          </>
+        )}
         <img src="https://flagcdn.com/24x18/cn.png" alt="CN" className="w-6 h-4 rounded-sm" />
         <span className="text-sm font-bold text-white">Station Spatiale Tiangong · CSS</span>
         <span className="text-[7px] font-black px-1.5 py-0.5 rounded border" style={{ color: ACCENT, borderColor: `${ACCENT}40`, background: `${ACCENT}15` }}>LIVE</span>
@@ -1122,149 +1216,295 @@ function TiangongDetail({ onBack }: { onBack: () => void }) {
   );
 }
 
-// ── Page principale ────────────────────────────────────────────────────────────
+// ── Launches View ─────────────────────────────────────────────────────────────
 
-export default function LiveView() {
-  const { data: alerts } = useAlerts();
-  const [view, setView] = useState<ViewLevel>('countries');
-  const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
-  const [selectedCity, setSelectedCity] = useState<CamCity | null>(null);
-  const [search, setSearch] = useState('');
+function CountdownBadge({ net, color }: { net: string; color: string }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => tick(n => n + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const { label, ms } = formatCountdown(net);
+  const isUrgent = ms > 0 && ms < 3600000;
+  return (
+    <span
+      className="text-[11px] font-black font-mono px-2 py-0.5 rounded"
+      style={{
+        color: ms <= 0 ? 'rgba(255,255,255,0.3)' : isUrgent ? '#FF4500' : color,
+        background: ms <= 0 ? 'rgba(255,255,255,0.05)' : isUrgent ? 'rgba(255,69,0,0.1)' : `${color}15`,
+        border: `1px solid ${ms <= 0 ? 'rgba(255,255,255,0.08)' : isUrgent ? 'rgba(255,69,0,0.4)' : `${color}30`}`,
+        animation: isUrgent ? 'pulse 1s ease-in-out infinite' : undefined,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
 
-  // Alert counts by country code (24h)
-  const alertsByCountry: Record<string, number> = {};
-  for (const a of alerts ?? []) {
-    if (!a.countryCode || (a.timestamp && Date.now() - new Date(a.timestamp).getTime() > 24 * 3600 * 1000)) continue;
-    alertsByCountry[a.countryCode] = (alertsByCountry[a.countryCode] ?? 0) + 1;
+function LaunchCard({ launch, featured }: { launch: Launch; featured?: boolean }) {
+  const agency = launch.launch_service_provider?.name ?? 'Inconnu';
+  const aColor = agencyColor(agency);
+  const statusAbbrev = launch.status?.abbrev ?? 'TBD';
+  const statusColor = STATUS_COLOR[statusAbbrev] ?? '#64748b';
+  const ytId = extractYouTubeId(launch.links?.webcast);
+  const isLive = launch.links?.webcast_live;
+
+  return (
+    <div
+      className="rounded-xl border overflow-hidden"
+      style={{
+        background: featured
+          ? `linear-gradient(135deg, ${aColor}18 0%, rgba(0,0,0,0.92) 100%)`
+          : 'rgba(255,255,255,0.02)',
+        borderColor: featured ? `${aColor}45` : 'rgba(255,255,255,0.08)',
+        boxShadow: featured ? `0 0 20px ${aColor}10` : 'none',
+      }}
+    >
+      {/* Agency color bar */}
+      <div className="h-0.5" style={{ background: `linear-gradient(90deg, ${aColor}, transparent)` }} />
+
+      <div className="p-3.5">
+        {/* Top row */}
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded"
+                style={{ color: aColor, background: `${aColor}20`, border: `1px solid ${aColor}30` }}>
+                {agency.length > 20 ? agency.split(' ').map((w: string) => w[0]).join('') : agency}
+              </span>
+              <span className="text-[8px] font-mono px-1.5 py-0.5 rounded"
+                style={{ color: statusColor, background: `${statusColor}15`, border: `1px solid ${statusColor}30` }}>
+                {launch.status?.name ?? 'TBD'}
+              </span>
+              {isLive && (
+                <span className="flex items-center gap-1 text-[8px] font-black text-red-400 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/30 animate-pulse">
+                  <span className="w-1 h-1 rounded-full bg-red-400 animate-ping" />
+                  LIVE
+                </span>
+              )}
+            </div>
+            <div className="text-[12px] font-bold text-white leading-tight line-clamp-2">
+              {launch.mission?.name ?? launch.name}
+            </div>
+            {launch.mission?.name && launch.mission.name !== launch.name && (
+              <div className="text-[9px] font-mono text-white/30 mt-0.5">{launch.name}</div>
+            )}
+          </div>
+          <CountdownBadge net={launch.net} color={aColor} />
+        </div>
+
+        {/* Details row */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[8px] font-mono text-white/35">
+          {launch.rocket?.configuration?.name && (
+            <span className="flex items-center gap-1">
+              <Rocket className="w-2.5 h-2.5" />
+              {launch.rocket.configuration.name}
+            </span>
+          )}
+          {launch.pad?.location?.name && (
+            <span className="flex items-center gap-1">
+              <Globe2 className="w-2.5 h-2.5" />
+              {launch.pad.location.name.split(',')[0]}
+            </span>
+          )}
+          {launch.mission?.orbit?.name && (
+            <span className="flex items-center gap-1">
+              <Satellite className="w-2.5 h-2.5" />
+              {launch.mission.orbit.name}
+            </span>
+          )}
+          <span className="flex items-center gap-1 ml-auto">
+            <Calendar className="w-2.5 h-2.5" />
+            {new Date(launch.net).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+          </span>
+        </div>
+
+        {/* Mission description */}
+        {featured && launch.mission?.description && (
+          <div className="text-[9px] font-mono text-white/25 mt-2 leading-relaxed line-clamp-2">
+            {launch.mission.description}
+          </div>
+        )}
+
+        {/* Webcast button or embed */}
+        {isLive && ytId ? (
+          <div className="mt-3 rounded-lg overflow-hidden" style={{ paddingBottom: '56.25%', position: 'relative' }}>
+            <iframe
+              src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1`}
+              className="absolute inset-0 w-full h-full"
+              allow="autoplay; fullscreen"
+              title={launch.name}
+            />
+          </div>
+        ) : launch.links?.webcast ? (
+          <a
+            href={launch.links.webcast}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2.5 flex items-center gap-1.5 text-[9px] font-bold font-mono px-3 py-1.5 rounded-lg transition-all hover:opacity-90 w-fit"
+            style={{ background: `${aColor}15`, border: `1px solid ${aColor}35`, color: aColor }}
+          >
+            <Play className="w-3 h-3" />
+            {isLive ? 'REGARDER LE DIRECT ↗' : 'VOIR LE WEBCAST ↗'}
+          </a>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function LaunchesView() {
+  const { upcoming, previous, loading, lastRefresh, refresh } = useLaunches();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const liveLaunches = upcoming.filter(l => l.links?.webcast_live);
+  const upcomingFiltered = upcoming.filter(l => !l.links?.webcast_live);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await refresh();
+    setRefreshing(false);
   }
 
-  // Filtered + sorted
-  const filteredCountries = search
-    ? COUNTRIES.filter(c => c.isSpace || c.name.toLowerCase().includes(search.toLowerCase()))
-    : COUNTRIES;
+  return (
+    <div className="flex flex-col gap-5">
 
-  const sortedCountries = [...filteredCountries].sort((a, b) => {
-    if (a.isSpace) return -1;
-    if (b.isSpace) return 1;
-    const scoreA = tensionScore(countryMaxTension(a)) * 1000 + (alertsByCountry[a.countryCode] ?? 0);
-    const scoreB = tensionScore(countryMaxTension(b)) * 1000 + (alertsByCountry[b.countryCode] ?? 0);
-    if (scoreA !== scoreB) return scoreB - scoreA;
-    return a.name.localeCompare(b.name, 'fr');
-  });
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-1">Toutes agences · Launch Library 2</div>
+          <div className="text-lg font-black text-white">Calendrier des Lancements</div>
+        </div>
+        <div className="flex items-center gap-2">
+          {lastRefresh && (
+            <div className="text-[8px] font-mono text-white/20">
+              Mis à jour {lastRefresh.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          )}
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 text-[9px] font-mono px-3 py-1.5 rounded-lg transition-all"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)' }}
+          >
+            <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
+            Actualiser
+          </button>
+        </div>
+      </div>
 
-  const goHome = () => { setView('countries'); setSelectedCountry(null); setSelectedCity(null); setSearch(''); };
-  const goToISS = () => { setView('iss'); };
-  const goToTiangong = () => { setView('tiangong'); };
-  const goToCities = (c: Country) => { setSelectedCountry(c); setSelectedCity(null); setView('cities'); };
-  const goToDashboard = (city: CamCity) => { setSelectedCity(city); setView('dashboard'); };
-  const goBackToCountries = () => { setView('countries'); setSelectedCountry(null); setSelectedCity(null); };
-  const goBackToCities = () => { setView('cities'); setSelectedCity(null); };
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center py-16 gap-3 text-[10px] font-mono text-white/30">
+          <Rocket className="w-5 h-5 animate-bounce" />
+          <span className="animate-pulse">Récupération des données Launch Library…</span>
+        </div>
+      )}
+
+      {/* Live launches - hero */}
+      {!loading && liveLaunches.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-2 h-2 rounded-full bg-red-400 animate-ping" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-red-400">Lancement en cours</span>
+          </div>
+          <div className="space-y-3">
+            {liveLaunches.map(l => <LaunchCard key={l.id} launch={l} featured />)}
+          </div>
+        </div>
+      )}
+
+      {/* Upcoming */}
+      {!loading && upcomingFiltered.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-0.5 h-4 rounded-full bg-primary/70" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-primary/70">Prochains lancements</span>
+            <span className="text-[8px] font-mono text-white/20">{upcomingFiltered.length} confirmés</span>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {upcomingFiltered.slice(0, 12).map((l, i) => (
+              <LaunchCard key={l.id} launch={l} featured={i < 2} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent past */}
+      {!loading && previous.length > 0 && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-0.5 h-4 rounded-full bg-white/20" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-white/30">Lancements récents</span>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {previous.slice(0, 8).map(l => <LaunchCard key={l.id} launch={l} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Empty */}
+      {!loading && upcoming.length === 0 && previous.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+          <Rocket className="w-10 h-10 text-white/10" />
+          <div className="text-[11px] font-mono text-white/20">
+            Données indisponibles — vérifiez votre connexion
+          </div>
+          <button onClick={handleRefresh} className="text-[9px] font-mono text-primary/50 hover:text-primary transition-colors">
+            Réessayer
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Page principale ────────────────────────────────────────────────────────────
+
+const SPACE_TABS: { id: SpaceTab; label: string; icon: string; color: string }[] = [
+  { id: 'iss',      label: 'ISS',        icon: '🛸', color: '#00F0FF' },
+  { id: 'tiangong', label: 'TIANGONG',   icon: '🔴', color: '#FF4500' },
+  { id: 'launches', label: 'LANCEMENTS', icon: '🚀', color: '#FFB800' },
+];
+
+export default function LiveView() {
+  const [tab, setTab] = useState<SpaceTab>('iss');
 
   return (
     <AppLayout>
       <div className="flex flex-col h-full bg-black text-white overflow-hidden">
 
-        {/* Header */}
-        <div className="shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 border-b"
-          style={{ borderBottomColor: 'rgba(255,255,255,0.07)' }}>
-          <Breadcrumb
-            view={view}
-            country={selectedCountry}
-            city={selectedCity}
-            onHome={goHome}
-            onBackToCountry={goBackToCities}
-          />
-          {view === 'countries' && (
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-white/25 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Rechercher…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="pl-8 pr-3 py-1.5 w-40 text-[10px] font-mono rounded-lg text-white placeholder-white/20 focus:outline-none transition-colors"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
-              />
-            </div>
-          )}
+        {/* Tab bar */}
+        <div className="shrink-0 flex items-center gap-1 px-4 py-2.5 border-b"
+          style={{ borderBottomColor: 'rgba(255,255,255,0.07)', background: 'rgba(0,0,0,0.6)' }}>
+          <div className="flex items-center gap-1 mr-3">
+            <Satellite className="w-3 h-3 text-white/20" />
+            <span className="text-[8px] font-black uppercase tracking-widest text-white/20">ESPACE</span>
+          </div>
+          {SPACE_TABS.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all"
+              style={tab === t.id
+                ? { background: `${t.color}12`, border: `1px solid ${t.color}35`, color: t.color }
+                : { border: '1px solid transparent', color: 'rgba(255,255,255,0.3)' }
+              }
+              data-testid={`tab-${t.id}`}
+            >
+              <span className="text-[10px]">{t.icon}</span>
+              {t.label}
+            </button>
+          ))}
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-white/8 scrollbar-track-transparent">
-
-          {/* View 1 — Countries grid */}
-          {view === 'countries' && (
-            <>
-              <Recommendations
-                countries={COUNTRIES}
-                alertsByCountry={alertsByCountry}
-                onSelect={goToCities}
-              />
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                {sortedCountries.map(c => (
-                  <CountryCard
-                    key={c.id}
-                    country={c}
-                    alertCount24h={alertsByCountry[c.countryCode] ?? 0}
-                    onClick={() => c.id === 'iss' ? goToISS() : c.id === 'tiangong' ? goToTiangong() : goToCities(c)}
-                  />
-                ))}
-                {sortedCountries.length === 0 && (
-                  <div className="col-span-full text-center py-12 text-[10px] font-mono text-white/20">
-                    Aucun résultat pour « {search} »
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* View 2 — Cities */}
-          {view === 'cities' && selectedCountry && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <button onClick={goBackToCountries} className="flex items-center gap-1.5 text-[10px] font-mono text-white/40 hover:text-primary transition-colors">
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  Retour aux pays
-                </button>
-                <div className="w-px h-4 bg-white/10" />
-                <img src={`https://flagcdn.com/24x18/${selectedCountry.countryCode.toLowerCase()}.png`} alt="" className="w-7 h-5 rounded-sm" />
-                <span className="text-sm font-bold text-white">{selectedCountry.name}</span>
-                {selectedCountry.isConflict && (
-                  <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded border border-destructive/40 text-destructive bg-destructive/10">
-                    ZONE DE CONFLIT
-                  </span>
-                )}
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {selectedCountry.cities.map(city => (
-                  <CityCard
-                    key={city.id}
-                    city={city}
-                    countryCode={selectedCountry.countryCode}
-                    alertCount={alertsByCountry[selectedCountry.countryCode] ?? 0}
-                    onClick={() => goToDashboard(city)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* View 3 — City dashboard */}
-          {view === 'dashboard' && selectedCity && selectedCountry && (
-            <CityDashboard city={selectedCity} country={selectedCountry} onBack={goBackToCities} />
-          )}
-
-          {/* View: ISS */}
-          {view === 'iss' && (
-            <ISSDetail onBack={goBackToCountries} />
-          )}
-
-          {/* View: Tiangong */}
-          {view === 'tiangong' && (
-            <TiangongDetail onBack={goBackToCountries} />
-          )}
-
+        <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+          {tab === 'iss'      && <ISSDetail />}
+          {tab === 'tiangong' && <TiangongDetail />}
+          {tab === 'launches' && <LaunchesView />}
         </div>
+
       </div>
     </AppLayout>
   );

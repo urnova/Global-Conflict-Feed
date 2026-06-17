@@ -151,7 +151,6 @@ export function CriticalAlertOverlay({ alerts }: Props) {
 
   const { alert } = current;
   const meta = SEV_META[alert.severity] ?? SEV_META.low;
-  const emoji = TYPE_EMOJIS[alert.type ?? ""] ?? "⚠️";
   const displayTitle = (alert as any).aiLabel ?? alert.title;
   const isCritical = alert.severity === "critical";
 
@@ -191,19 +190,12 @@ export function CriticalAlertOverlay({ alerts }: Props) {
 
           <div className="px-4 py-3 flex items-center gap-3">
             {/* Severity icon */}
-            <div className="shrink-0 flex flex-col items-center gap-1">
-              <span className="text-2xl leading-none">{emoji}</span>
-              {isCritical && (
-                <div className="flex gap-0.5">
-                  {[0,1,2].map(i => (
-                    <span key={i} className="w-1 h-1 rounded-full"
-                      style={{
-                        background: meta.color,
-                        animation: `live-ping 0.9s ease-out ${i * 0.18}s infinite`,
-                      }} />
-                  ))}
-                </div>
-              )}
+            <div className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg"
+              style={{ background: `${meta.color}18`, border: `1px solid ${meta.color}35` }}>
+              {isCritical
+                ? <AlertTriangle className="w-4 h-4" style={{ color: meta.color }} />
+                : <Zap className="w-4 h-4" style={{ color: meta.color }} />
+              }
             </div>
 
             {/* Content */}
