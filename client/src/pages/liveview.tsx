@@ -48,13 +48,17 @@ interface Weather {
   condition: string;
 }
 
-type ViewLevel = 'countries' | 'cities' | 'dashboard' | 'iss';
+type ViewLevel = 'countries' | 'cities' | 'dashboard' | 'iss' | 'tiangong';
 
 // ── Catalogue des pays et villes ──────────────────────────────────────────────
 
 const COUNTRIES: Country[] = [
   {
     id: 'iss', name: 'Station Spatiale (ISS)', countryCode: 'ISS',
+    isConflict: false, isSpace: true, cities: [],
+  },
+  {
+    id: 'tiangong', name: 'Station Tiangong (CSS)', countryCode: 'CN',
     isConflict: false, isSpace: true, cities: [],
   },
   {
@@ -204,23 +208,47 @@ function getEmbedUrl(city: CamCity): string | null {
 
 // ── Hooks ─────────────────────────────────────────────────────────────────────
 
-function useISSTracker() {
-  const [iss, setIss] = useState<ISSData | null>(null);
+function useSatTracker(noradId: number) {
+  const [sat, setSat] = useState<ISSData | null>(null);
   useEffect(() => {
     let active = true;
-    async function fetchISS() {
+    async function fetchSat() {
       try {
-        const res = await fetch('https://api.wheretheiss.at/v1/satellites/25544');
+        const res = await fetch(`https://api.wheretheiss.at/v1/satellites/${noradId}`);
         if (!res.ok || !active) return;
         const d = await res.json();
-        setIss({ lat: d.latitude, lng: d.longitude, altitude: d.altitude, velocity: d.velocity, timestamp: d.timestamp, footprint: d.footprint, visibility: d.visibility });
+        setSat({ lat: d.latitude, lng: d.longitude, altitude: d.altitude, velocity: d.velocity, timestamp: d.timestamp, footprint: d.footprint, visibility: d.visibility });
       } catch {}
     }
-    fetchISS();
-    const t = setInterval(fetchISS, 5000);
+    fetchSat();
+    const t = setInterval(fetchSat, 5000);
     return () => { active = false; clearInterval(t); };
+  }, [noradId]);
+  return sat;
+}
+
+function useISSTracker() { return useSatTracker(25544); }
+function useTiangongTracker() { return useSatTracker(48274); }
+
+interface EpicImage { image: string; date: string; caption?: string; }
+
+function useEpicImages() {
+  const [images, setImages] = useState<EpicImage[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    fetch('https://epic.gsfc.nasa.gov/api/natural/images')
+      .then(r => r.json())
+      .then((data: EpicImage[]) => setImages(data.slice(0, 10)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
-  return iss;
+  return { images, loading };
+}
+
+function epicUrl(img: EpicImage): string {
+  const d = img.date.split(' ')[0];
+  const [y, m, day] = d.split('-');
+  return `https://epic.gsfc.nasa.gov/archive/natural/${y}/${m}/${day}/jpg/${img.image}.jpg`;
 }
 
 function useWeather(lat: number, lng: number, enabled: boolean) {
@@ -294,6 +322,9 @@ function Breadcrumb({ view, country, city, onHome, onBackToCountry }: {
       {view === 'iss' && (
         <><span className="mx-0.5 text-white/15">/</span><span className="text-white/70">Station Spatiale ISS</span></>
       )}
+      {view === 'tiangong' && (
+        <><span className="mx-0.5 text-white/15">/</span><span className="text-white/70">Station Tiangong</span></>
+      )}
       {(view === 'cities' || view === 'dashboard') && country && (
         <>
           <span className="mx-0.5 text-white/15">/</span>
@@ -316,28 +347,37 @@ function CountryCard({ country, alertCount24h, onClick }: {
   country: Country; alertCount24h: number; onClick: () => void;
 }) {
   if (country.isSpace) {
+    const isISS = country.id === 'iss';
+    const accentColor = isISS ? '#00F0FF' : '#FF4500';
+    const label = isISS ? 'ISS · 25544' : 'CSS · 48274';
+    const subLabel = isISS ? 'Station US/Europe/Japon/Russie' : 'Station spatiale chinoise';
+    const liveLabel = isISS ? 'Données NASA temps réel' : 'Données CNSA temps réel';
+    const flagCode = isISS ? null : 'cn';
     return (
       <button
         onClick={onClick}
         className="group relative flex flex-col gap-3 p-4 rounded-2xl border text-left transition-all duration-200 hover:scale-[1.02] active:scale-[0.99]"
         style={{
-          background: 'linear-gradient(135deg, rgba(0,240,255,0.08) 0%, rgba(0,0,0,0.7) 100%)',
-          borderColor: 'rgba(0,240,255,0.35)',
-          boxShadow: '0 0 24px rgba(0,240,255,0.08)',
+          background: `linear-gradient(135deg, ${accentColor}12 0%, rgba(0,0,0,0.75) 100%)`,
+          borderColor: `${accentColor}40`,
+          boxShadow: `0 0 24px ${accentColor}10`,
         }}
       >
         <style>{`@keyframes spin-slow { to { transform: rotate(360deg); } }`}</style>
         <div className="flex items-center gap-2.5">
-          <Satellite className="w-6 h-6 text-primary shrink-0" style={{ animation: 'spin-slow 6s linear infinite' }} />
+          {flagCode
+            ? <img src={`https://flagcdn.com/24x18/${flagCode}.png`} alt="CN" className="w-7 h-5 rounded-sm object-cover shrink-0" />
+            : <Satellite className="w-6 h-6 shrink-0" style={{ color: accentColor, animation: 'spin-slow 8s linear infinite' }} />
+          }
           <div className="min-w-0 flex-1">
-            <div className="text-[12px] font-bold text-white">Station Spatiale</div>
-            <div className="text-[9px] font-mono text-primary/50 mt-0.5">ISS · Orbite basse terrestre</div>
+            <div className="text-[12px] font-bold text-white">{country.name}</div>
+            <div className="text-[9px] font-mono mt-0.5" style={{ color: `${accentColor}60` }}>{label} · {subLabel}</div>
           </div>
-          <span className="text-[7px] font-black px-1.5 py-0.5 rounded border border-primary/30 text-primary bg-primary/10 shrink-0">LIVE</span>
+          <span className="text-[7px] font-black px-1.5 py-0.5 rounded border shrink-0" style={{ color: accentColor, borderColor: `${accentColor}40`, background: `${accentColor}15` }}>LIVE</span>
         </div>
-        <div className="flex items-center gap-1.5 text-[8px] font-mono text-white/30">
-          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-ping inline-block" />
-          Vue NASA en direct
+        <div className="flex items-center gap-1.5 text-[8px] font-mono" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          <span className="w-1.5 h-1.5 rounded-full animate-ping inline-block" style={{ background: accentColor }} />
+          {liveLabel}
         </div>
       </button>
     );
@@ -667,9 +707,41 @@ function CityDashboard({ city, country, onBack }: {
 
 // ── ISS Detail ────────────────────────────────────────────────────────────────
 
+// ── Shared orbital stat bar ───────────────────────────────────────────────────
+
+function OrbitalStats({ sat, accentColor }: { sat: ISSData; accentColor: string }) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {[
+        { label: 'Latitude', value: `${sat.lat.toFixed(3)}°` },
+        { label: 'Longitude', value: `${sat.lng.toFixed(3)}°` },
+        { label: 'Altitude', value: `${Math.round(sat.altitude)} km` },
+        { label: 'Vitesse', value: `${(sat.velocity / 3600).toFixed(2)} km/s` },
+      ].map(({ label, value }) => (
+        <div key={label} className="rounded-xl border bg-black/60 p-3 text-center"
+          style={{ borderColor: `${accentColor}20` }}>
+          <div className="text-[8px] font-bold uppercase tracking-widest mb-1" style={{ color: `${accentColor}60` }}>{label}</div>
+          <div className="text-sm font-black font-mono" style={{ color: accentColor }}>{value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── ISS Detail ────────────────────────────────────────────────────────────────
+
 function ISSDetail({ onBack }: { onBack: () => void }) {
   const { data: alerts } = useAlerts();
   const iss = useISSTracker();
+  const { images, loading: epicLoading } = useEpicImages();
+  const [imgIdx, setImgIdx] = useState(0);
+
+  // Auto-rotate NASA EPIC Earth images
+  useEffect(() => {
+    if (images.length < 2) return;
+    const t = setInterval(() => setImgIdx(i => (i + 1) % images.length), 7000);
+    return () => clearInterval(t);
+  }, [images.length]);
 
   const conflictCities = COUNTRIES
     .filter(c => c.isConflict)
@@ -688,6 +760,9 @@ function ISSDetail({ onBack }: { onBack: () => void }) {
     a.timestamp && Date.now() - new Date(a.timestamp).getTime() < 12 * 3600 * 1000
   ).slice(0, 6);
 
+  const currentImg = images[imgIdx];
+  const ACCENT = '#00F0FF';
+
   return (
     <div className="flex flex-col gap-4 h-full">
       {/* Header */}
@@ -698,73 +773,119 @@ function ISSDetail({ onBack }: { onBack: () => void }) {
         </button>
         <div className="w-px h-4 bg-white/10" />
         <Satellite className="w-4 h-4 text-primary" style={{ animation: 'spin-slow 6s linear infinite' }} />
-        <span className="text-sm font-bold text-white">Station Spatiale Internationale</span>
+        <span className="text-sm font-bold text-white">Station Spatiale Internationale · ISS</span>
         <span className="text-[7px] font-black px-1.5 py-0.5 rounded border border-primary/30 text-primary bg-primary/10">LIVE</span>
       </div>
 
-      {/* Main layout: Live feed + sidebar */}
+      {/* Main layout */}
       <div className="flex gap-4 flex-col lg:flex-row flex-1 min-h-0">
 
-        {/* NASA ISS live feed (NASA TV via Ustream embed) */}
+        {/* Left: Earth imagery + stats */}
         <div className="flex-1 min-w-0 flex flex-col gap-3">
-          <div className="relative w-full rounded-2xl overflow-hidden border border-primary/20"
-            style={{ paddingBottom: '56.25%', background: 'rgba(0,0,0,0.6)' }}>
-            <iframe
-              src="https://www.ustream.tv/embed/17074538?html5ui=1&autoplay=true&mute=true"
-              className="absolute inset-0 w-full h-full"
-              frameBorder="0"
-              allowFullScreen
-              title="NASA ISS Live — Ustream"
-            />
-            <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-red-600/90 px-2 py-1 rounded-lg pointer-events-none">
+
+          {/* NASA EPIC Earth imagery hero */}
+          <div className="relative w-full rounded-2xl overflow-hidden border"
+            style={{ paddingBottom: '56.25%', borderColor: `${ACCENT}25`, background: 'rgba(0,0,0,0.8)' }}>
+
+            {/* Image */}
+            {currentImg && (
+              <img
+                key={currentImg.image}
+                src={epicUrl(currentImg)}
+                alt="Terre depuis l'espace — NASA EPIC"
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+                style={{ opacity: 1 }}
+              />
+            )}
+
+            {/* Loading placeholder */}
+            {(epicLoading || images.length === 0) && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3"
+                style={{ background: 'radial-gradient(ellipse at center, #001a2e 0%, #000 100%)' }}>
+                <div className="w-16 h-16 rounded-full border-2 border-primary/30 animate-pulse"
+                  style={{ background: 'radial-gradient(ellipse, #002d4a 0%, #000820 100%)' }} />
+                <span className="text-[9px] font-mono text-white/30 animate-pulse">
+                  {epicLoading ? 'Chargement imagerie NASA…' : 'Imagerie indisponible'}
+                </span>
+              </div>
+            )}
+
+            {/* Dark gradient overlay */}
+            <div className="absolute inset-0 pointer-events-none"
+              style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.7) 100%)' }} />
+
+            {/* LIVE badge top-left */}
+            <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-red-600/90 backdrop-blur-sm px-2 py-1 rounded-lg pointer-events-none">
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
               <span className="text-[8px] font-bold text-white uppercase tracking-wider">EN DIRECT</span>
             </div>
-            {/* Fallback overlay if embed unavailable */}
-            <div className="absolute bottom-3 left-3 right-3 pointer-events-none flex items-end justify-between">
+
+            {/* Image counter top-right */}
+            {images.length > 1 && (
+              <div className="absolute top-3 right-3 flex items-center gap-1 pointer-events-none">
+                {images.map((_, i) => (
+                  <span key={i} className="w-1 h-1 rounded-full transition-all"
+                    style={{ background: i === imgIdx ? ACCENT : 'rgba(255,255,255,0.3)' }} />
+                ))}
+              </div>
+            )}
+
+            {/* Bottom overlay: position + NASA TV link */}
+            <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between pointer-events-none">
               <div className="bg-black/70 backdrop-blur-md px-3 py-2 rounded-xl">
-                <div className="text-[10px] font-bold text-white">Vue depuis l'ISS · NASA TV</div>
-                {iss && (
-                  <div className="text-[8px] font-mono text-primary/70 mt-0.5">
-                    {iss.lat.toFixed(2)}° {iss.lng.toFixed(2)}° · Alt {Math.round(iss.altitude)} km
+                <div className="text-[10px] font-bold text-white mb-0.5">Terre vue de l'espace · NASA EPIC</div>
+                {iss ? (
+                  <div className="text-[8px] font-mono" style={{ color: `${ACCENT}99` }}>
+                    ISS {iss.lat >= 0 ? 'N' : 'S'}{Math.abs(iss.lat).toFixed(1)}° {iss.lng >= 0 ? 'E' : 'O'}{Math.abs(iss.lng).toFixed(1)}° · {Math.round(iss.altitude)} km
+                  </div>
+                ) : (
+                  <div className="text-[8px] font-mono text-white/30 animate-pulse">Localisation ISS…</div>
+                )}
+                {currentImg && (
+                  <div className="text-[7px] font-mono text-white/25 mt-0.5">
+                    Photo : {new Date(currentImg.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </div>
                 )}
               </div>
-              <a
-                href="https://www.nasa.gov/nasatv/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 bg-black/70 backdrop-blur-md px-3 py-2 rounded-xl text-[9px] font-mono text-primary/70 hover:text-primary transition-colors pointer-events-auto"
-              >
-                <ExternalLink className="w-3 h-3" />
-                NASA TV
-              </a>
+              <div className="flex flex-col gap-1.5 pointer-events-auto">
+                <a
+                  href="https://www.youtube.com/watch?v=P57pHPzj4qU"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 backdrop-blur-md px-3 py-2 rounded-xl text-[9px] font-bold font-mono transition-all hover:opacity-90"
+                  style={{ background: `${ACCENT}20`, border: `1px solid ${ACCENT}40`, color: ACCENT }}
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  REGARDER NASA TV ↗
+                </a>
+              </div>
             </div>
           </div>
 
-          {/* Orbital stats */}
-          {iss && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                { label: 'Latitude', value: `${iss.lat.toFixed(3)}°` },
-                { label: 'Longitude', value: `${iss.lng.toFixed(3)}°` },
-                { label: 'Altitude', value: `${Math.round(iss.altitude)} km` },
-                { label: 'Vitesse', value: `${Math.round(iss.velocity / 1000)} km/s` },
-              ].map(({ label, value }) => (
-                <div key={label} className="rounded-xl border border-white/8 bg-black/60 p-3 text-center">
-                  <div className="text-[8px] font-bold uppercase tracking-widest text-primary/40 mb-1">{label}</div>
-                  <div className="text-sm font-black font-mono text-primary">{value}</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {!iss && (
-            <div className="flex items-center justify-center py-8 gap-2 text-[10px] font-mono text-white/30">
+          {/* Orbital telemetry */}
+          {iss ? (
+            <OrbitalStats sat={iss} accentColor={ACCENT} />
+          ) : (
+            <div className="flex items-center justify-center py-6 gap-2 text-[10px] font-mono text-white/25">
               <Satellite className="w-4 h-4 animate-pulse" />
               Connexion ISS en cours…
             </div>
           )}
+
+          {/* Crew + orbit info strip */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Équipage', value: '7 pers.', sub: 'à bord actuellement' },
+              { label: 'Période orbitale', value: '~92 min', sub: 'tour de la Terre' },
+              { label: 'Visibilité', value: iss?.visibility === 'daylight' ? 'Jour' : iss?.visibility === 'eclipsed' ? 'Ombre' : '—', sub: 'côté illuminé' },
+            ].map(({ label, value, sub }) => (
+              <div key={label} className="rounded-xl border border-white/8 bg-black/60 p-3 text-center">
+                <div className="text-[7px] font-bold uppercase tracking-widest text-white/25 mb-1">{label}</div>
+                <div className="text-sm font-black font-mono text-white/80">{value}</div>
+                <div className="text-[7px] font-mono text-white/20 mt-0.5">{sub}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Sidebar */}
@@ -811,6 +932,190 @@ function ISSDetail({ onBack }: { onBack: () => void }) {
               </div>
             )}
           </div>
+
+          {/* NASA links */}
+          <div className="rounded-2xl border border-white/8 bg-black/60 p-3.5 space-y-2">
+            <div className="text-[8px] font-bold uppercase tracking-widest text-white/25 mb-2">Sources officielles</div>
+            {[
+              { label: 'NASA TV Live', url: 'https://www.nasa.gov/nasatv/' },
+              { label: 'Tracker ISS (NASA)', url: 'https://spotthestation.nasa.gov/tracking_map.cfm' },
+              { label: 'Photos EPIC NASA', url: 'https://epic.gsfc.nasa.gov' },
+            ].map(({ label, url }) => (
+              <a key={label} href={url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-[9px] font-mono text-primary/50 hover:text-primary transition-colors">
+                <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                {label}
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Tiangong Detail ────────────────────────────────────────────────────────────
+
+function TiangongDetail({ onBack }: { onBack: () => void }) {
+  const { data: alerts } = useAlerts();
+  const sat = useTiangongTracker();
+  const ACCENT = '#FF4500';
+
+  const critAlerts = (alerts ?? []).filter(a =>
+    (a.severity === 'critical' || a.severity === 'high') &&
+    a.timestamp && Date.now() - new Date(a.timestamp).getTime() < 12 * 3600 * 1000
+  ).slice(0, 6);
+
+  return (
+    <div className="flex flex-col gap-4 h-full">
+      {/* Header */}
+      <div className="flex items-center gap-3 shrink-0">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-[10px] font-mono text-white/40 hover:text-primary transition-colors">
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Retour
+        </button>
+        <div className="w-px h-4 bg-white/10" />
+        <img src="https://flagcdn.com/24x18/cn.png" alt="CN" className="w-6 h-4 rounded-sm" />
+        <span className="text-sm font-bold text-white">Station Spatiale Tiangong · CSS</span>
+        <span className="text-[7px] font-black px-1.5 py-0.5 rounded border" style={{ color: ACCENT, borderColor: `${ACCENT}40`, background: `${ACCENT}15` }}>LIVE</span>
+      </div>
+
+      {/* Main layout */}
+      <div className="flex gap-4 flex-col lg:flex-row flex-1 min-h-0">
+
+        <div className="flex-1 min-w-0 flex flex-col gap-3">
+
+          {/* Hero panel */}
+          <div className="relative w-full rounded-2xl overflow-hidden border flex flex-col items-center justify-center py-14 px-6"
+            style={{
+              borderColor: `${ACCENT}30`,
+              background: `radial-gradient(ellipse at 40% 40%, ${ACCENT}12 0%, rgba(0,0,0,0.95) 70%)`,
+              minHeight: '240px',
+            }}>
+            {/* Animated rings */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="w-64 h-64 rounded-full border animate-ping"
+                style={{ borderColor: `${ACCENT}10`, animationDuration: '3s' }} />
+              <div className="absolute w-48 h-48 rounded-full border"
+                style={{ borderColor: `${ACCENT}15`, animation: 'spin-slow 20s linear infinite' }} />
+              <div className="absolute w-80 h-80 rounded-full border"
+                style={{ borderColor: `${ACCENT}08`, animation: 'spin-slow 35s linear infinite reverse' }} />
+            </div>
+
+            {/* Station icon */}
+            <div className="relative z-10 flex flex-col items-center gap-4 text-center">
+              <div className="flex items-center gap-3">
+                <Satellite className="w-10 h-10" style={{ color: ACCENT, animation: 'spin-slow 10s linear infinite' }} />
+              </div>
+              <div>
+                <div className="text-2xl font-black text-white mb-1">天宫 Tiangong</div>
+                <div className="text-[11px] font-mono text-white/40">Station Spatiale Chinoise (CSS) · NORAD 48274</div>
+              </div>
+
+              {sat ? (
+                <div className="flex items-center gap-2 text-[10px] font-mono" style={{ color: ACCENT }}>
+                  <span className="w-2 h-2 rounded-full animate-ping" style={{ background: ACCENT }} />
+                  Survol : {sat.lat >= 0 ? 'N' : 'S'}{Math.abs(sat.lat).toFixed(1)}° {sat.lng >= 0 ? 'E' : 'O'}{Math.abs(sat.lng).toFixed(1)}° · {Math.round(sat.altitude)} km
+                </div>
+              ) : (
+                <div className="text-[9px] font-mono text-white/30 animate-pulse">Connexion Tiangong en cours…</div>
+              )}
+
+              <div className="flex gap-2 mt-2">
+                <a href="https://heavens-above.com/satinfo.aspx?satid=48274"
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-bold font-mono transition-all hover:opacity-90"
+                  style={{ background: `${ACCENT}20`, border: `1px solid ${ACCENT}45`, color: ACCENT }}>
+                  <ExternalLink className="w-3 h-3" />
+                  SUIVRE SUR HEAVENS-ABOVE ↗
+                </a>
+                <a href="https://www.n2yo.com/satellite/?s=48274"
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-bold font-mono transition-all hover:opacity-90"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.5)' }}>
+                  <ExternalLink className="w-3 h-3" />
+                  N2YO TRACKER ↗
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Telemetry */}
+          {sat && <OrbitalStats sat={sat} accentColor={ACCENT} />}
+
+          {/* Station modules info */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { name: 'Tianhe', icon: '🛸', desc: 'Module central de vie', year: '2021' },
+              { name: 'Wentian', icon: '🔬', desc: 'Laboratoire scientifique', year: '2022' },
+              { name: 'Mengtian', icon: '⚗️', desc: 'Module expérimental', year: '2022' },
+            ].map(m => (
+              <div key={m.name} className="rounded-xl border border-white/8 bg-black/60 p-3 text-center">
+                <div className="text-lg mb-1">{m.icon}</div>
+                <div className="text-[11px] font-bold text-white">{m.name}</div>
+                <div className="text-[8px] font-mono text-white/30 mt-0.5 leading-snug">{m.desc}</div>
+                <div className="text-[7px] font-mono mt-1" style={{ color: `${ACCENT}70` }}>Lancé {m.year}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Sidebar */}
+        <div className="w-full lg:w-56 shrink-0 flex flex-col gap-3">
+
+          {/* Station facts */}
+          <div className="rounded-2xl border border-white/8 bg-black/60 p-3.5 space-y-2.5">
+            <div className="text-[8px] font-bold uppercase tracking-widest text-white/25 mb-2">Caractéristiques</div>
+            {[
+              { label: 'Équipage', value: '3 taikonautes' },
+              { label: 'Orbite', value: '340 – 450 km' },
+              { label: 'Période', value: '~91 min / orbite' },
+              { label: 'Inclinaison', value: '41.5°' },
+              { label: 'Opérateur', value: 'CNSA / CMS' },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex items-center justify-between text-[9px] font-mono">
+                <span className="text-white/30">{label}</span>
+                <span className="text-white/70 font-bold">{value}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Critical alerts */}
+          <div className="rounded-2xl border border-white/8 bg-black/60 p-3.5 flex-1 overflow-y-auto">
+            <div className="flex items-center gap-1.5 mb-2.5">
+              <Zap className="w-3 h-3 text-amber-400/50" />
+              <span className="text-[8px] font-bold uppercase tracking-widest text-amber-400/50">Alertes mondiales · 12h</span>
+            </div>
+            {critAlerts.length === 0 ? (
+              <div className="text-[9px] font-mono text-white/20">Aucune alerte récente</div>
+            ) : (
+              <div className="space-y-2">
+                {critAlerts.map(a => (
+                  <div key={a.id} className="text-[9px] font-mono">
+                    <span className={`font-bold mr-1 ${a.severity === 'critical' ? 'text-destructive' : 'text-amber-400'}`}>{a.country}</span>
+                    <span className="text-white/40 line-clamp-2">{a.title}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Links */}
+          <div className="rounded-2xl border border-white/8 bg-black/60 p-3.5 space-y-2">
+            <div className="text-[8px] font-bold uppercase tracking-widest text-white/25 mb-2">Sources</div>
+            {[
+              { label: 'CNSA officiel', url: 'http://www.cnsa.gov.cn' },
+              { label: 'Heavens-Above', url: 'https://heavens-above.com/satinfo.aspx?satid=48274' },
+              { label: 'CelesTrak TLE', url: 'https://celestrak.org/SOCRATES/query.php?IDENT=4&NAME1=TIANGONG&NAME2=ISS' },
+            ].map(({ label, url }) => (
+              <a key={label} href={url} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-[9px] font-mono hover:text-white transition-colors"
+                style={{ color: `${ACCENT}70` }}>
+                <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                {label}
+              </a>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -849,6 +1154,7 @@ export default function LiveView() {
 
   const goHome = () => { setView('countries'); setSelectedCountry(null); setSelectedCity(null); setSearch(''); };
   const goToISS = () => { setView('iss'); };
+  const goToTiangong = () => { setView('tiangong'); };
   const goToCities = (c: Country) => { setSelectedCountry(c); setSelectedCity(null); setView('cities'); };
   const goToDashboard = (city: CamCity) => { setSelectedCity(city); setView('dashboard'); };
   const goBackToCountries = () => { setView('countries'); setSelectedCountry(null); setSelectedCity(null); };
@@ -900,7 +1206,7 @@ export default function LiveView() {
                     key={c.id}
                     country={c}
                     alertCount24h={alertsByCountry[c.countryCode] ?? 0}
-                    onClick={() => c.isSpace ? goToISS() : goToCities(c)}
+                    onClick={() => c.id === 'iss' ? goToISS() : c.id === 'tiangong' ? goToTiangong() : goToCities(c)}
                   />
                 ))}
                 {sortedCountries.length === 0 && (
@@ -951,6 +1257,11 @@ export default function LiveView() {
           {/* View: ISS */}
           {view === 'iss' && (
             <ISSDetail onBack={goBackToCountries} />
+          )}
+
+          {/* View: Tiangong */}
+          {view === 'tiangong' && (
+            <TiangongDetail onBack={goBackToCountries} />
           )}
 
         </div>
