@@ -80,44 +80,44 @@ function FlagImg({ code }: { code?: string | null }) {
 
 // ── Type metadata ────────────────────────────────────────────────────────────
 const TYPE_META: Record<string, { icon: React.ReactNode; label: string; color: string; cat: string }> = {
-  missile:        { icon: <Navigation2 className="w-3 h-3 rotate-45" />, label: "MISSILE",      color: "#F02D3A", cat: "MIL" },
-  airstrike:      { icon: <Zap className="w-3 h-3" />,                   label: "FRAPPE AÉRO",  color: "#EF4444", cat: "MIL" },
-  artillery:      { icon: <FlameKindling className="w-3 h-3" />,         label: "ARTILLERIE",   color: "#F97316", cat: "MIL" },
-  naval:          { icon: <Anchor className="w-3 h-3" />,                label: "NAVAL",        color: "#3B82F6", cat: "MIL" },
-  conflict:       { icon: <Crosshair className="w-3 h-3" />,             label: "COMBAT",       color: "#F97316", cat: "MIL" },
-  explosion:      { icon: <Shield className="w-3 h-3" />,               label: "EXPLOSION",    color: "#EF4444", cat: "MIL" },
-  chemical:       { icon: <Biohazard className="w-3 h-3" />,            label: "CHIMIQUE",     color: "#84CC16", cat: "MIL" },
-  nuclear:        { icon: <Activity className="w-3 h-3" />,             label: "NUCLÉAIRE",    color: "#D946EF", cat: "MIL" },
-  cyber:          { icon: <Cpu className="w-3 h-3" />,                  label: "CYBER",        color: "#00C8D4", cat: "MIL" },
-  massacre:       { icon: <Skull className="w-3 h-3" />,                label: "MASSACRE",     color: "#DC2626", cat: "MIL" },
-  terrorism:      { icon: <Flame className="w-3 h-3" />,                label: "TERRORISME",   color: "#F02D3A", cat: "MIL" },
-  coup:           { icon: <Gavel className="w-3 h-3" />,                label: "COUP D'ÉTAT",  color: "#A855F7", cat: "POL" },
-  earthquake:     { icon: <Activity className="w-3 h-3" />,             label: "SÉISME",       color: "#F97316", cat: "NAT" },
-  tsunami:        { icon: <Waves className="w-3 h-3" />,                label: "TSUNAMI",      color: "#60A5FA", cat: "NAT" },
-  volcano:        { icon: <Mountain className="w-3 h-3" />,             label: "VOLCAN",       color: "#EF4444", cat: "NAT" },
-  flood:          { icon: <Droplets className="w-3 h-3" />,             label: "INONDATION",   color: "#3B82F6", cat: "NAT" },
-  wildfire:       { icon: <Flame className="w-3 h-3" />,                label: "INCENDIE",     color: "#F97316", cat: "NAT" },
-  avalanche:      { icon: <Mountain className="w-3 h-3" />,             label: "AVALANCHE",    color: "#BAE6FD", cat: "NAT" },
-  landslide:      { icon: <Mountain className="w-3 h-3" />,             label: "GLISSEMENT",   color: "#92400E", cat: "NAT" },
-  hurricane:      { icon: <Wind className="w-3 h-3" />,                 label: "OURAGAN",      color: "#60A5FA", cat: "MET" },
+  missile:        { icon: <Navigation2 className="w-3 h-3 rotate-45" />, label: "MISSILE",    color: "#F02D3A", cat: "MIL" },
+  airstrike:      { icon: <Zap className="w-3 h-3" />,                   label: "AIRSTRIKE",  color: "#EF4444", cat: "MIL" },
+  artillery:      { icon: <FlameKindling className="w-3 h-3" />,         label: "ARTILLERY",  color: "#F97316", cat: "MIL" },
+  naval:          { icon: <Anchor className="w-3 h-3" />,                label: "NAVAL",      color: "#3B82F6", cat: "MIL" },
+  conflict:       { icon: <Crosshair className="w-3 h-3" />,             label: "COMBAT",     color: "#F97316", cat: "MIL" },
+  explosion:      { icon: <Shield className="w-3 h-3" />,               label: "EXPLOSION",  color: "#EF4444", cat: "MIL" },
+  chemical:       { icon: <Biohazard className="w-3 h-3" />,            label: "CHEMICAL",   color: "#84CC16", cat: "MIL" },
+  nuclear:        { icon: <Activity className="w-3 h-3" />,             label: "NUCLEAR",    color: "#D946EF", cat: "MIL" },
+  cyber:          { icon: <Cpu className="w-3 h-3" />,                  label: "CYBER",      color: "#00C8D4", cat: "MIL" },
+  massacre:       { icon: <Skull className="w-3 h-3" />,                label: "MASSACRE",   color: "#DC2626", cat: "MIL" },
+  terrorism:      { icon: <Flame className="w-3 h-3" />,                label: "TERRORISM",  color: "#F02D3A", cat: "MIL" },
+  coup:           { icon: <Gavel className="w-3 h-3" />,                label: "COUP",       color: "#A855F7", cat: "POL" },
+  earthquake:     { icon: <Activity className="w-3 h-3" />,             label: "EARTHQUAKE", color: "#F97316", cat: "NAT" },
+  tsunami:        { icon: <Waves className="w-3 h-3" />,                label: "TSUNAMI",    color: "#60A5FA", cat: "NAT" },
+  volcano:        { icon: <Mountain className="w-3 h-3" />,             label: "VOLCANO",    color: "#EF4444", cat: "NAT" },
+  flood:          { icon: <Droplets className="w-3 h-3" />,             label: "FLOOD",      color: "#3B82F6", cat: "NAT" },
+  wildfire:       { icon: <Flame className="w-3 h-3" />,                label: "WILDFIRE",   color: "#F97316", cat: "NAT" },
+  avalanche:      { icon: <Mountain className="w-3 h-3" />,             label: "AVALANCHE",  color: "#BAE6FD", cat: "NAT" },
+  landslide:      { icon: <Mountain className="w-3 h-3" />,             label: "LANDSLIDE",    color: "#92400E", cat: "NAT" },
+  hurricane:      { icon: <Wind className="w-3 h-3" />,                 label: "HURRICANE",    color: "#60A5FA", cat: "MET" },
   cyclone:        { icon: <Wind className="w-3 h-3" />,                 label: "CYCLONE",      color: "#60A5FA", cat: "MET" },
-  tornado:        { icon: <Tornado className="w-3 h-3" />,              label: "TORNADE",      color: "#818CF8", cat: "MET" },
-  storm:          { icon: <CloudLightning className="w-3 h-3" />,       label: "TEMPÊTE",      color: "#818CF8", cat: "MET" },
-  heatwave:       { icon: <ThermometerSun className="w-3 h-3" />,       label: "CANICULE",     color: "#F59E0B", cat: "MET" },
-  "cold-snap":    { icon: <Wind className="w-3 h-3" />,                 label: "GRAND FROID",  color: "#BAE6FD", cat: "MET" },
-  drought:        { icon: <ThermometerSun className="w-3 h-3" />,       label: "SÉCHERESSE",   color: "#B45309", cat: "MET" },
-  pandemic:       { icon: <Biohazard className="w-3 h-3" />,            label: "PANDÉMIE",     color: "#10B981", cat: "SAN" },
-  epidemic:       { icon: <HeartPulse className="w-3 h-3" />,           label: "ÉPIDÉMIE",     color: "#059669", cat: "SAN" },
-  outbreak:       { icon: <Biohazard className="w-3 h-3" />,            label: "FOYER",        color: "#059669", cat: "SAN" },
-  biological:     { icon: <Biohazard className="w-3 h-3" />,            label: "BIOLOGIQUE",   color: "#10B981", cat: "SAN" },
-  diplomatic:     { icon: <Globe2 className="w-3 h-3" />,               label: "DIPLOMATIE",   color: "#60A5FA", cat: "INF" },
-  political:      { icon: <Gavel className="w-3 h-3" />,                label: "POLITIQUE",    color: "#818CF8", cat: "POL" },
-  "military-move":{ icon: <Navigation2 className="w-3 h-3" />,         label: "DÉPLOIEMENT",  color: "#93C5FD", cat: "MIL" },
+  tornado:        { icon: <Tornado className="w-3 h-3" />,              label: "TORNADO",      color: "#818CF8", cat: "MET" },
+  storm:          { icon: <CloudLightning className="w-3 h-3" />,       label: "STORM",        color: "#818CF8", cat: "MET" },
+  heatwave:       { icon: <ThermometerSun className="w-3 h-3" />,       label: "HEATWAVE",     color: "#F59E0B", cat: "MET" },
+  "cold-snap":    { icon: <Wind className="w-3 h-3" />,                 label: "COLD SNAP",    color: "#BAE6FD", cat: "MET" },
+  drought:        { icon: <ThermometerSun className="w-3 h-3" />,       label: "DROUGHT",      color: "#B45309", cat: "MET" },
+  pandemic:       { icon: <Biohazard className="w-3 h-3" />,            label: "PANDEMIC",     color: "#10B981", cat: "SAN" },
+  epidemic:       { icon: <HeartPulse className="w-3 h-3" />,           label: "EPIDEMIC",     color: "#059669", cat: "SAN" },
+  outbreak:       { icon: <Biohazard className="w-3 h-3" />,            label: "OUTBREAK",     color: "#059669", cat: "SAN" },
+  biological:     { icon: <Biohazard className="w-3 h-3" />,            label: "BIOLOGICAL",   color: "#10B981", cat: "SAN" },
+  diplomatic:     { icon: <Globe2 className="w-3 h-3" />,               label: "DIPLOMATIC",   color: "#60A5FA", cat: "INF" },
+  political:      { icon: <Gavel className="w-3 h-3" />,                label: "POLITICAL",    color: "#818CF8", cat: "POL" },
+  "military-move":{ icon: <Navigation2 className="w-3 h-3" />,         label: "DEPLOYMENT",   color: "#93C5FD", cat: "MIL" },
   sanctions:      { icon: <Ban className="w-3 h-3" />,                  label: "SANCTIONS",    color: "#A855F7", cat: "POL" },
-  protest:        { icon: <Megaphone className="w-3 h-3" />,            label: "MANIFESTATION",color: "#FBBF24", cat: "INF" },
-  humanitarian:   { icon: <Shield className="w-3 h-3" />,               label: "HUMANITAIRE",  color: "#F97316", cat: "INF" },
+  protest:        { icon: <Megaphone className="w-3 h-3" />,            label: "PROTEST",      color: "#FBBF24", cat: "INF" },
+  humanitarian:   { icon: <Shield className="w-3 h-3" />,               label: "HUMANITARIAN", color: "#F97316", cat: "INF" },
   breaking:       { icon: <Radio className="w-3 h-3" />,                label: "BREAKING",     color: "#F97316", cat: "INF" },
-  warning:        { icon: <AlertTriangle className="w-3 h-3" />,        label: "ALERTE",       color: "#00C8D4", cat: "INF" },
+  warning:        { icon: <AlertTriangle className="w-3 h-3" />,        label: "ALERT",        color: "#00C8D4", cat: "INF" },
   info:           { icon: <Search className="w-3 h-3" />,               label: "INFO",         color: "#6B7280", cat: "INF" },
 };
 
@@ -129,29 +129,29 @@ const SEV_COLORS: Record<string, string> = {
   low:      "#4B5563",
 };
 const SEV_LABELS: Record<string, string> = {
-  critical: "CRITIQUE", high: "ÉLEVÉ", medium: "MOYEN", low: "BAS",
+  critical: "CRITICAL", high: "HIGH", medium: "MEDIUM", low: "LOW",
 };
 
 type Cat    = "ALL" | "MIL" | "NAT" | "MET" | "SAN" | "POL" | "INF";
 type SortBy = "severity" | "time";
 
 const CATS: { key: Cat; label: string; color: string }[] = [
-  { key: "ALL", label: "Tout",    color: "#FFFFFF"  },
+  { key: "ALL", label: "All",    color: "#FFFFFF"  },
   { key: "MIL", label: "Mil",    color: "#F02D3A"  },
   { key: "NAT", label: "Nat",    color: "#F97316"  },
-  { key: "MET", label: "Mét",    color: "#3B82F6"  },
-  { key: "SAN", label: "San",    color: "#10B981"  },
+  { key: "MET", label: "Met",    color: "#3B82F6"  },
+  { key: "SAN", label: "Med",    color: "#10B981"  },
   { key: "POL", label: "Pol",    color: "#A855F7"  },
   { key: "INF", label: "Info",   color: "#60A5FA"  },
 ];
 
 const REGIONS: Record<string, { label: string; codes: Set<string> | null }> = {
-  ALL:      { label: "Monde",    codes: null },
-  MIDEAST:  { label: "M.Orient", codes: new Set(["IR","IL","PS","SY","IQ","YE","LB","JO","SA","AE","KW","QA","BH","OM","TR"]) },
+  ALL:      { label: "World",    codes: null },
+  MIDEAST:  { label: "Mid.East", codes: new Set(["IR","IL","PS","SY","IQ","YE","LB","JO","SA","AE","KW","QA","BH","OM","TR"]) },
   EUROPE:   { label: "Europe",   codes: new Set(["UA","RU","RS","XK","BY","PL","GE","AM","AZ","BA","MK","FR","DE","GB","MD","RO","HU","BG","HR","AL","ME","LT","LV","EE","FI","SE","NO","CH","IT","ES","PT","NL","BE","GR","CY","SK","CZ","SI"]) },
-  ASIA:     { label: "Asie",     codes: new Set(["CN","KP","KR","TW","IN","PK","AF","MM","VN","PH","ID","JP","BD","NP","TH","KH","LA","MY","MN","KZ","UZ","TM","KG","TJ"]) },
-  AFRICA:   { label: "Afrique",  codes: new Set(["SD","ET","SO","ML","NG","CD","CF","SS","LY","MZ","ZW","ZA","MA","DZ","TN","KE","TZ","UG","RW","BI","GN","CI","GH","SN","CM","AO","ZM","BF","NE","TD","ER"]) },
-  AMERICAS: { label: "Amériques",codes: new Set(["VE","CO","MX","BR","US","PE","BO","EC","CU","GT","HN","SV","NI","PA","PY","UY","AR","CL","DO","HT"]) },
+  ASIA:     { label: "Asia",     codes: new Set(["CN","KP","KR","TW","IN","PK","AF","MM","VN","PH","ID","JP","BD","NP","TH","KH","LA","MY","MN","KZ","UZ","TM","KG","TJ"]) },
+  AFRICA:   { label: "Africa",   codes: new Set(["SD","ET","SO","ML","NG","CD","CF","SS","LY","MZ","ZW","ZA","MA","DZ","TN","KE","TZ","UG","RW","BI","GN","CI","GH","SN","CM","AO","ZM","BF","NE","TD","ER"]) },
+  AMERICAS: { label: "Americas", codes: new Set(["VE","CO","MX","BR","US","PE","BO","EC","CU","GT","HN","SV","NI","PA","PY","UY","AR","CL","DO","HT"]) },
 };
 
 function getCat(type?: string | null, category?: string | null): Cat {
@@ -186,7 +186,7 @@ function AlertCard({ alert, isNew }: { alert: Alert; isNew: boolean }) {
   const title    = aiLabel ?? alert.title;
   const ago      = alert.timestamp
     ? formatDistanceToNow(new Date(alert.timestamp), { addSuffix: true })
-    : "À l'instant";
+    : "just now";
 
   const handleClick = () => {
     window.dispatchEvent(new CustomEvent("focus-alert", {
@@ -291,7 +291,7 @@ export function AlertFeed({ mobile = false }: { mobile?: boolean }) {
       <div className="h-full flex flex-col">
         <div className="px-3 py-4 flex items-center gap-2">
           <Radio className="w-4 h-4 text-[#00C8D4]" />
-          <span className="text-[10px] font-medium text-white/40">Acquisition du flux…</span>
+          <span className="text-[10px] font-medium text-white/40">Acquiring live feed…</span>
         </div>
         <div className="px-3 space-y-2">
           {[...Array(6)].map((_, i) => (
@@ -358,7 +358,7 @@ export function AlertFeed({ mobile = false }: { mobile?: boolean }) {
             <div className="flex items-center gap-1">
               <span className="live-dot" style={{ width: 5, height: 5 }} />
               <span className="text-[9px] font-mono text-white/50 uppercase tracking-wider">
-                {filtered.length}/{allAlerts.length} événements
+                {filtered.length}/{allAlerts.length} events
               </span>
             </div>
           </div>
@@ -383,7 +383,7 @@ export function AlertFeed({ mobile = false }: { mobile?: boolean }) {
                 "p-1.5 rounded-md transition-all",
                 "text-white/30 hover:text-white/60"
               )}
-              title={sortBy === "severity" ? "Tri: sévérité" : "Tri: chronologique"}>
+              title={sortBy === "severity" ? "Sort: severity" : "Sort: chronological"}>
               {sortBy === "severity"
                 ? <TrendingUp className="w-3 h-3" />
                 : <Clock className="w-3 h-3" />}
@@ -396,7 +396,7 @@ export function AlertFeed({ mobile = false }: { mobile?: boolean }) {
                   ? "text-[#00C8D4] bg-[rgba(0,200,212,0.10)]"
                   : "text-white/30 hover:text-white/60"
               )}
-              title="Filtres">
+              title="Filters">
               <SlidersHorizontal className="w-3 h-3" />
             </button>
           </div>
@@ -438,7 +438,7 @@ export function AlertFeed({ mobile = false }: { mobile?: boolean }) {
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Rechercher pays, titre…"
+                placeholder="Search country, title…"
                 className="w-full pl-7 pr-3 py-1.5 rounded-md text-[10px] font-mono text-white/70 placeholder:text-white/20 outline-none"
                 style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
               />
@@ -447,11 +447,11 @@ export function AlertFeed({ mobile = false }: { mobile?: boolean }) {
             {/* Severity */}
             <div className="flex gap-1">
               {[
-                { key: "ALL",      label: "Tout",    color: "#FFFFFF"  },
-                { key: "critical", label: "Critique", color: "#F02D3A" },
-                { key: "high",     label: "Élevé",   color: "#F59E0B"  },
-                { key: "medium",   label: "Moyen",   color: "#00C8D4"  },
-                { key: "low",      label: "Bas",     color: "#6B7280"  },
+                { key: "ALL",      label: "All",      color: "#FFFFFF"  },
+                { key: "critical", label: "Critical", color: "#F02D3A" },
+                { key: "high",     label: "High",     color: "#F59E0B"  },
+                { key: "medium",   label: "Medium",   color: "#00C8D4"  },
+                { key: "low",      label: "Low",      color: "#6B7280"  },
               ].map(s => (
                 <button
                   key={s.key}
@@ -490,7 +490,7 @@ export function AlertFeed({ mobile = false }: { mobile?: boolean }) {
           ? <TrendingUp className="w-2.5 h-2.5 text-white/20" />
           : <Clock className="w-2.5 h-2.5 text-white/20" />}
         <span className="text-[8px] font-mono text-white/20 uppercase tracking-wider">
-          Trié par {sortBy === "severity" ? "sévérité" : "plus récent"}
+          Sorted by {sortBy === "severity" ? "severity" : "most recent"}
         </span>
       </div>
 
@@ -499,11 +499,11 @@ export function AlertFeed({ mobile = false }: { mobile?: boolean }) {
         {filtered.length === 0 ? (
           <div className="py-16 text-center">
             <Globe2 className="w-8 h-8 text-white/8 mx-auto mb-3" />
-            <p className="text-[10px] font-mono text-white/20">Aucun événement trouvé</p>
+            <p className="text-[10px] font-mono text-white/20">No events found</p>
             {search && (
               <button onClick={() => setSearch("")}
                 className="mt-2 text-[9px] text-[#00C8D4]/50 hover:text-[#00C8D4] transition-colors">
-                Effacer la recherche
+                Clear search
               </button>
             )}
           </div>
@@ -521,7 +521,7 @@ export function AlertFeed({ mobile = false }: { mobile?: boolean }) {
           ARGOS · 48h
         </span>
         <span className="text-[8px] font-mono text-white/15">
-          {filtered.length} résultat{filtered.length !== 1 ? "s" : ""}
+          {filtered.length} result{filtered.length !== 1 ? "s" : ""}
         </span>
       </div>
     </div>

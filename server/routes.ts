@@ -444,14 +444,30 @@ export async function registerRoutes(
     }
   });
 
-  // ── GET /api/health — DB connectivity check ───────────────────────────────
+  // ── GET /api/health — full system health check ────────────────────────────
   app.get('/api/health', async (_req, res) => {
+    let dbOk = false;
     try {
       await pool.query('SELECT 1');
-      res.json({ status: 'ok' });
-    } catch {
-      res.status(503).json({ status: 'error', message: 'Database unreachable' });
+      dbOk = true;
+    } catch { /* db offline */ }
+
+    const groqOk = !!process.env.GROQ_API_KEY;
+
+    if (!dbOk) {
+      return res.status(503).json({
+        status: 'error',
+        db: false,
+        groq: groqOk,
+        message: 'Database unreachable',
+      });
     }
+
+    return res.json({
+      status: 'ok',
+      db: true,
+      groq: groqOk,
+    });
   });
 
   // ── GET /api/stats ─────────────────────────────────────────────────────────

@@ -1,6 +1,5 @@
 import { useAiSummary } from "@/hooks/use-ai-summary";
 import { formatDistanceToNow } from "date-fns";
-import { fr } from "date-fns/locale";
 import { Brain, RefreshCw, ChevronDown, ChevronUp, Clock, AlertTriangle } from "lucide-react";
 import { useState, useCallback } from "react";
 
@@ -71,7 +70,7 @@ export function AiSummaryPanel({ onHide, headless = false }: Props) {
   const [refreshing, setRefreshing] = useState(false);
 
   const ago = data?.generatedAt
-    ? formatDistanceToNow(new Date(data.generatedAt), { addSuffix: true, locale: fr })
+    ? formatDistanceToNow(new Date(data.generatedAt), { addSuffix: true })
     : null;
 
   const ageHours = data?.generatedAt
@@ -97,7 +96,7 @@ export function AiSummaryPanel({ onHide, headless = false }: Props) {
           style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <div className="flex items-center gap-2">
             <Brain className="w-3.5 h-3.5 text-[#00F5FF]" />
-            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-[#00F5FF]">Briefing Stratégique</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-[#00F5FF]">Strategic Briefing</span>
             {data && <span className="text-[7.5px] font-mono text-white/25">{data.alertCount} evt</span>}
           </div>
           <div className="flex items-center gap-1">
@@ -107,7 +106,7 @@ export function AiSummaryPanel({ onHide, headless = false }: Props) {
                 <Clock className="w-2 h-2" />{Math.floor(ageHours)}h
               </span>
             )}
-            <button onClick={handleRefresh} disabled={refreshing} title="Régénérer"
+            <button onClick={handleRefresh} disabled={refreshing} title="Regenerate"
               className="text-white/25 hover:text-[#00F5FF] transition-colors p-0.5 rounded disabled:opacity-30">
               <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
             </button>
@@ -137,7 +136,7 @@ export function AiSummaryPanel({ onHide, headless = false }: Props) {
             <div className="flex flex-col items-center gap-2 py-6">
               <Brain className="w-8 h-8 text-white/10" />
               <p className="text-[9px] font-mono text-white/25 text-center leading-relaxed">
-                {isError ? "Erreur de connexion" : "Génération en cours…\nPremier briefing dans ~3 min"}
+                {isError ? "Connection error" : "Generating briefing…\nFirst briefing in ~3 min"}
               </p>
               <div className="flex gap-0.5">
                 {[0,1,2].map(i => (
@@ -168,7 +167,7 @@ export function AiSummaryPanel({ onHide, headless = false }: Props) {
               {ago && (
                 <div className="pt-2 flex items-center justify-end gap-1" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
                   <Clock className="w-2.5 h-2.5 text-white/15" />
-                  <span className="text-[7.5px] font-mono text-white/20">Généré {ago}</span>
+                  <span className="text-[7.5px] font-mono text-white/20">Generated {ago}</span>
                 </div>
               )}
             </div>

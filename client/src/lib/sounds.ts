@@ -1,103 +1,100 @@
 /**
  * Sounds — Argos V7
- * MP3 sounds removed. TTS (SpeechSynthesis) only.
+ * TTS removed. Web Audio API notification beeps only.
  * Mute state persisted in localStorage.
  */
 
 let muted = false;
-let ttsEnabled = true;
 try {
-  muted      = localStorage.getItem("argos_muted") === "1";
-  ttsEnabled = localStorage.getItem("argos_tts")   !== "0";
+  muted = localStorage.getItem("argos_muted") === "1";
 } catch { /* SSR */ }
 
 export function isMuted()      { return muted; }
-export function isTtsEnabled() { return ttsEnabled; }
+export function isTtsEnabled() { return false; }
 export function setMuted(v: boolean) {
   muted = v;
   try { localStorage.setItem("argos_muted", v ? "1" : "0"); } catch { /* */ }
 }
 export function toggleMute() { setMuted(!muted); return muted; }
-export function setTtsEnabled(v: boolean) {
-  ttsEnabled = v;
-  try { localStorage.setItem("argos_tts", v ? "1" : "0"); } catch { /* */ }
-}
-export function toggleTts() { setTtsEnabled(!ttsEnabled); return ttsEnabled; }
+export function setTtsEnabled(_v: boolean) {}
+export function toggleTts() { return false; }
+export function speak(_text: string) {}
 
-// ── TTS queue ──────────────────────────────────────────────────────────────────
-let ttsQueue: string[] = [];
-let ttsSpeaking = false;
-
-function drainTts() {
-  if (ttsSpeaking || ttsQueue.length === 0) return;
-  if (muted || !ttsEnabled) { ttsQueue = []; return; }
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-
-  ttsSpeaking = true;
-  const text = ttsQueue.shift()!;
-  const utt = new SpeechSynthesisUtterance(text);
-  utt.lang   = "fr-FR";
-  utt.rate   = 0.95;
-  utt.pitch  = 0.95;
-  utt.volume = 0.8;
-
-  const voices = window.speechSynthesis.getVoices();
-  const frVoice = voices.find(v => v.lang.startsWith("fr")) ?? null;
-  if (frVoice) utt.voice = frVoice;
-
-  utt.onend  = () => { ttsSpeaking = false; setTimeout(drainTts, 300); };
-  utt.onerror= () => { ttsSpeaking = false; setTimeout(drainTts, 300); };
-
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(utt);
-}
-
-export function speak(text: string) {
-  if (muted || !ttsEnabled) return;
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
-  if (ttsQueue.length >= 2) ttsQueue = ttsQueue.slice(-1);
-  ttsQueue.push(text);
-  drainTts();
-}
-
-// ── TTS messages ───────────────────────────────────────────────────────────────
-function buildTtsMessage(type: string, severity: string, title: string, country?: string | null): string {
-  const loc = country ? `en ${country}` : "";
-  if (type === "earthquake") {
-    const mag = (title.match(/M([\d.]+)/) ?? [])[1];
-    return `Séisme ${mag ? `magnitude ${mag} ` : ""}${loc}.`;
+// ── Web Audio context (lazy) ────────────────────────────────────────────────
+let _ctx: AudioContext | null = null;
+function getCtx(): AudioContext | null {
+  if (muted) return null;
+  if (typeof window === "undefined" || !("AudioContext" in window || "webkitAudioContext" in window)) return null;
+  if (!_ctx) {
+    try {
+      _ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    } catch { return null; }
   }
-  if (type === "tsunami")  return `Alerte tsunami ${loc}. Evacuez les zones côtières.`;
-  if (type === "hurricane" || type === "cyclone") return `Cyclone ${loc}. Mesures de protection requises.`;
-  if (type === "flood")    return `Inondation ${loc}.`;
-  if (type === "wildfire") return `Incendie majeur ${loc}.`;
-  if (type === "volcano")  return `Activité volcanique ${loc}.`;
-  if (type === "pandemic") return `Alerte pandémie ${loc}.`;
-  if (type === "epidemic" || type === "outbreak") return `Foyer épidémique ${loc}.`;
-  if (type === "missile")  return `Lancement de missile ${loc}. Alerte critique.`;
-  if (type === "airstrike") return `Frappe aérienne ${loc}.`;
-  if (type === "nuclear")  return `Alerte nucléaire ${loc}. Niveau maximal.`;
-  if (type === "terrorism") return `Attaque terroriste ${loc}.`;
-  if (severity === "critical") return `Alerte critique ${loc}.`;
-  if (severity === "high")     return `Situation élevée ${loc}.`;
-  return "";
+  if (_ctx.state === "suspended") {
+    _ctx.resume().catch(() => {});
+  }
+  return _ctx;
 }
 
-// ── Public API (no-op stubs for backward compat) ───────────────────────────────
-export function playSound(_f: string, _v?: number, _d?: number) {}
-export function soundIncoming() {}
-export function soundVerifiedCritical() {}
-export function soundVerifiedHigh() {}
-export function soundVerifiedMedium() {}
-export function soundVerifiedLow() {}
-export function soundDataRefresh() {}
-export function soundMissileLaunch() {}
-export function soundMissileImpact() {}
-export function soundMultipleLaunches() {}
+// ── Synthesized beep ─────────────────────────────────────────────────────────
+function beep(
+  freq: number,
+  duration: number,
+  volume: number,
+  startAt: number,
+  type: OscillatorType = "sine"
+) {
+  const ctx = getCtx();
+  if (!ctx) return;
+  try {
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type      = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + startAt);
+    gain.gain.setValueAtTime(0, ctx.currentTime + startAt);
+    gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + startAt + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startAt + duration);
+    osc.start(ctx.currentTime + startAt);
+    osc.stop(ctx.currentTime + startAt + duration + 0.05);
+  } catch { /* */ }
+}
 
-export function soundVerifiedResult(type: string, severity: string, title = "", country?: string | null) {
-  if (severity === "critical" || severity === "high") {
-    const msg = buildTtsMessage(type, severity, title, country);
-    if (msg) setTimeout(() => speak(msg), 600);
+// ── Critical alert — urgent 3-pulse pattern ──────────────────────────────────
+function playCriticalAlert() {
+  beep(880, 0.12, 0.35, 0.00, "square");
+  beep(660, 0.12, 0.35, 0.18, "square");
+  beep(880, 0.15, 0.35, 0.36, "square");
+}
+
+// ── High alert — single crisp ping ───────────────────────────────────────────
+function playHighAlert() {
+  beep(660, 0.18, 0.25, 0.00, "sine");
+}
+
+// ── Soft incoming chime ───────────────────────────────────────────────────────
+function playIncoming() {
+  beep(520, 0.12, 0.18, 0.00, "sine");
+}
+
+// ── Public API ───────────────────────────────────────────────────────────────
+export function playSound(_f: string, _v?: number, _d?: number) {}
+export function soundIncoming() { if (!muted) playIncoming(); }
+export function soundVerifiedCritical() { if (!muted) playCriticalAlert(); }
+export function soundVerifiedHigh()     { if (!muted) playHighAlert(); }
+export function soundVerifiedMedium()   { if (!muted) playIncoming(); }
+export function soundVerifiedLow()      {}
+export function soundDataRefresh()      {}
+export function soundMissileLaunch()    { if (!muted) playCriticalAlert(); }
+export function soundMissileImpact()    { if (!muted) playCriticalAlert(); }
+export function soundMultipleLaunches() { if (!muted) playCriticalAlert(); }
+
+export function soundVerifiedResult(type: string, severity: string, _title = "", _country?: string | null) {
+  if (muted) return;
+  if (severity === "critical" || type === "missile" || type === "nuclear") {
+    setTimeout(() => soundVerifiedCritical(), 300);
+  } else if (severity === "high") {
+    setTimeout(() => soundVerifiedHigh(), 300);
   }
 }

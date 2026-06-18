@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 
 const STEPS = [
-  { label: "Initialisation des capteurs orbitaux",     pct: 12 },
-  { label: "Connexion au flux de données global",       pct: 28 },
-  { label: "Synchronisation constellation satellite",   pct: 45 },
-  { label: "Déchiffrement flux de renseignement",       pct: 62 },
-  { label: "Cartographie des zones actives",            pct: 78 },
-  { label: "Chargement du moteur d'analyse IA",         pct: 90 },
-  { label: "Système opérationnel",                      pct: 100 },
+  { label: "Initializing orbital sensors",       pct: 12 },
+  { label: "Connecting to global data feed",     pct: 28 },
+  { label: "Synchronizing satellite network",    pct: 45 },
+  { label: "Decrypting intelligence stream",     pct: 62 },
+  { label: "Mapping active conflict zones",      pct: 78 },
+  { label: "Loading AI analysis engine",         pct: 90 },
+  { label: "System operational",                 pct: 100 },
 ];
 
 export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
@@ -69,7 +69,7 @@ export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
             Argos Intelligence
           </div>
           <div className="text-[8px] font-mono uppercase tracking-[0.3em] text-white/25">
-            Analyse Radar Globale · Observation Situations
+            Global Radar Analysis · Situation Monitoring
           </div>
         </div>
 
@@ -114,7 +114,7 @@ export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
 
         {/* Feature badges */}
         <div className="flex gap-2 flex-wrap justify-center">
-          {["SÉCURISÉ", "DIRECT", "GLOBAL"].map((label, i) => {
+          {["SECURED", "LIVE", "GLOBAL"].map((label, i) => {
             const icons = ["🔒", "⚡", "🌐"];
             const active = stepIdx >= (i + 1) * 2;
             return (
@@ -139,7 +139,7 @@ export function LoadingScreen({ onComplete }: { onComplete: () => void }) {
         {done && (
           <div className="text-[9px] font-mono uppercase tracking-[0.3em] fade-up"
             style={{ color: "#00F5FF" }}>
-            Système prêt ✓
+            System ready ✓
           </div>
         )}
       </div>

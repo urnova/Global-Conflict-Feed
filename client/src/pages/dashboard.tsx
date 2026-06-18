@@ -7,17 +7,19 @@ import { AiSummaryPanel } from "@/components/ai-summary-panel";
 import { AiChat } from "@/components/ai-chat";
 import { LoadingScreen } from "@/components/loading-screen";
 import { CriticalAlertOverlay } from "@/components/critical-alert-overlay";
+import { ServerErrorOverlay } from "@/components/server-error-overlay";
 import { MobileDashboard } from "@/components/mobile-dashboard";
 import { useAlerts } from "@/hooks/use-alerts";
-import { useServerStatus } from "@/hooks/use-server-status";
+import { useServerStatus, useServerHealth } from "@/hooks/use-server-status";
 import { useDeviceType } from "@/hooks/use-mobile";
 import {
   Brain, MessageSquare, Map, List, ChevronLeft, ChevronRight,
-  Loader2, WifiOff, Volume2, VolumeX, Globe2
+  Loader2, WifiOff, Volume2, VolumeX
 } from "lucide-react";
 import { clsx } from "clsx";
 import type { Alert } from "@shared/schema";
 import { isMuted, toggleMute } from "@/lib/sounds";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Dashboard() {
   const device = useDeviceType();
@@ -25,32 +27,45 @@ export default function Dashboard() {
   return <DesktopDashboard />;
 }
 
-// ── Right Panel Tab type ────────────────────────────────────────────────────
 type RightTab = "feed" | "briefing" | "chat";
 
-// ── Desktop Dashboard ───────────────────────────────────────────────────────
 function DesktopDashboard() {
   const { data: alerts } = useAlerts();
   const serverStatus = useServerStatus();
+  const health = useServerHealth();
+  const queryClient = useQueryClient();
 
   const [isLoading, setIsLoading] = useState(() =>
     typeof sessionStorage === "undefined" ? true : !sessionStorage.getItem("argos_v7_loaded")
   );
   const [focusCountry, setFocusCountry] = useState<{ code: string; lat?: number; lng?: number } | undefined>();
-  const [showLeft, setShowLeft]     = useState(true);
-  const [showRight, setShowRight]   = useState(true);
-  const [rightTab, setRightTab]     = useState<RightTab>("feed");
-  const [muted, setMuted]           = useState(isMuted());
+  const [showLeft,  setShowLeft]  = useState(true);
+  const [showRight, setShowRight] = useState(true);
+  const [rightTab,  setRightTab]  = useState<RightTab>("feed");
+  const [muted,     setMuted]     = useState(isMuted());
 
   const handleCountryFocus = useCallback((code: string, lat?: number, lng?: number) => {
     setFocusCountry({ code, lat, lng });
   }, []);
 
+  const handleRetry = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['/api/health'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/alerts'] });
+  }, [queryClient]);
+
   const H48 = 48 * 60 * 60 * 1000;
-  const recentAlerts = (alerts ?? []).filter(a => !a.timestamp || (Date.now() - new Date(a.timestamp).getTime()) < H48);
+  const recentAlerts  = (alerts ?? []).filter(a => !a.timestamp || (Date.now() - new Date(a.timestamp).getTime()) < H48);
   const criticalCount = recentAlerts.filter(a => a.severity === "critical").length;
   const highCount     = recentAlerts.filter(a => a.severity === "high").length;
   const countryCount  = new Set(recentAlerts.map(a => a.countryCode).filter(Boolean)).size;
+
+  // Determine if error overlay should show
+  const showErrorOverlay = serverStatus === "error";
+  const errorDetails = {
+    server: !health.db && !health.groq,
+    db:     !health.db,
+    groq:   !health.groq,
+  };
 
   return (
     <>
@@ -65,17 +80,15 @@ function DesktopDashboard() {
       <AppLayout>
         <div className="flex h-full min-h-0 overflow-hidden">
 
-          {/* ── LEFT — Tension panel ────────────────────────────────────── */}
+          {/* ── LEFT — Tension panel ─────────────────────────────────────── */}
           <div className={clsx(
             "h-full transition-all duration-300 ease-in-out overflow-hidden shrink-0",
             showLeft ? "w-[220px]" : "w-0"
           )}>
-            {showLeft && (
-              <CountryTensionPanel onCountryClick={handleCountryFocus} />
-            )}
+            {showLeft && <CountryTensionPanel onCountryClick={handleCountryFocus} />}
           </div>
 
-          {/* ── CENTER — Globe ──────────────────────────────────────────── */}
+          {/* ── CENTER — Globe ───────────────────────────────────────────── */}
           <div className="relative flex-1 min-w-0 flex flex-col">
 
             {/* Globe stats bar */}
@@ -90,9 +103,9 @@ function DesktopDashboard() {
                 <Divider />
                 <StatPill value={criticalCount} label="CRIT" color="#F02D3A" pulse />
                 <Divider />
-                <StatPill value={highCount} label="ELEV" color="#F59E0B" />
+                <StatPill value={highCount}     label="HIGH" color="#F59E0B" />
                 <Divider />
-                <StatPill value={countryCount} label="PAYS" color="#00C8D4" />
+                <StatPill value={countryCount}  label="CTRY" color="#00C8D4" />
                 <Divider />
                 <StatPill value={recentAlerts.length} label="48H" color="rgba(255,255,255,0.35)" />
               </div>
@@ -111,7 +124,15 @@ function DesktopDashboard() {
               showFeed={rightTab === "feed" && showRight}
             />
 
-            {/* Globe bottom toolbar */}
+            {/* Server error overlay — on top of globe */}
+            {showErrorOverlay && (
+              <ServerErrorOverlay
+                errors={errorDetails}
+                onRetry={handleRetry}
+              />
+            )}
+
+            {/* Bottom toolbar */}
             <div className="absolute bottom-4 left-0 right-0 z-20 flex items-center justify-center gap-2 pointer-events-none">
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl pointer-events-auto"
                 style={{
@@ -131,7 +152,7 @@ function DesktopDashboard() {
                   active={rightTab === "feed" && showRight}
                   onClick={() => { setRightTab("feed"); setShowRight(p => rightTab === "feed" ? !p : true); }}
                   icon={<List className="w-3.5 h-3.5" />}
-                  label="Alertes"
+                  label="Alerts"
                 />
                 <GlobeToolBtn
                   active={rightTab === "briefing" && showRight}
@@ -143,19 +164,19 @@ function DesktopDashboard() {
                   active={rightTab === "chat" && showRight}
                   onClick={() => { setRightTab("chat"); setShowRight(p => rightTab === "chat" ? !p : true); }}
                   icon={<MessageSquare className="w-3.5 h-3.5" />}
-                  label="Analyste"
+                  label="Analyst"
                 />
                 <ToolDivider />
                 <GlobeToolBtn
                   active={!muted}
                   onClick={() => { toggleMute(); setMuted(isMuted()); }}
                   icon={muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-                  label={muted ? "Muet" : "Son"}
+                  label={muted ? "Muted" : "Sound"}
                 />
               </div>
             </div>
 
-            {/* Left panel toggle button */}
+            {/* Left panel toggle */}
             <button
               onClick={() => setShowLeft(p => !p)}
               className="absolute left-0 top-1/2 -translate-y-1/2 z-30 h-10 w-4 flex items-center justify-center rounded-r transition-colors"
@@ -163,14 +184,13 @@ function DesktopDashboard() {
                 background: "rgba(6,8,16,0.85)",
                 border: "1px solid rgba(255,255,255,0.08)",
                 borderLeft: "none",
-              }}
-              title={showLeft ? "Masquer tensions" : "Afficher tensions"}>
+              }}>
               {showLeft
                 ? <ChevronLeft className="w-2.5 h-2.5 text-white/30" />
                 : <ChevronRight className="w-2.5 h-2.5 text-white/30" />}
             </button>
 
-            {/* Right panel toggle button */}
+            {/* Right panel toggle */}
             <button
               onClick={() => setShowRight(p => !p)}
               className="absolute right-0 top-1/2 -translate-y-1/2 z-30 h-10 w-4 flex items-center justify-center rounded-l transition-colors"
@@ -178,15 +198,14 @@ function DesktopDashboard() {
                 background: "rgba(6,8,16,0.85)",
                 border: "1px solid rgba(255,255,255,0.08)",
                 borderRight: "none",
-              }}
-              title={showRight ? "Masquer panneau" : "Afficher panneau"}>
+              }}>
               {showRight
                 ? <ChevronRight className="w-2.5 h-2.5 text-white/30" />
                 : <ChevronLeft className="w-2.5 h-2.5 text-white/30" />}
             </button>
           </div>
 
-          {/* ── RIGHT — Tabbed panel ────────────────────────────────────── */}
+          {/* ── RIGHT — Tabbed panel ─────────────────────────────────────── */}
           <div className={clsx(
             "h-full transition-all duration-300 ease-in-out overflow-hidden shrink-0 flex flex-col",
             showRight ? "w-[340px]" : "w-0"
@@ -196,13 +215,12 @@ function DesktopDashboard() {
                 style={{ background: "rgba(6,8,16,0.95)" }}>
 
                 {/* Tab bar */}
-                <div className="flex shrink-0"
-                  style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <div className="flex shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                   <TabBtn
                     active={rightTab === "feed"}
                     onClick={() => setRightTab("feed")}
                     icon={<List className="w-3.5 h-3.5" />}
-                    label="Alertes"
+                    label="Alerts"
                     badge={criticalCount > 0 ? String(criticalCount) : undefined}
                     badgeColor="#F02D3A"
                   />
@@ -216,15 +234,13 @@ function DesktopDashboard() {
                     active={rightTab === "chat"}
                     onClick={() => setRightTab("chat")}
                     icon={<MessageSquare className="w-3.5 h-3.5" />}
-                    label="Analyste"
+                    label="Analyst"
                   />
                 </div>
 
                 {/* Tab content */}
                 <div className="flex-1 min-h-0 overflow-hidden">
-                  {rightTab === "feed" && (
-                    <AlertFeed />
-                  )}
+                  {rightTab === "feed" && <AlertFeed />}
                   {rightTab === "briefing" && (
                     <div className="h-full overflow-y-auto scrollbar-thin">
                       <AiSummaryPanel headless />
@@ -246,7 +262,7 @@ function DesktopDashboard() {
   );
 }
 
-// ── Sub-components ──────────────────────────────────────────────────────────
+// ── Sub-components ───────────────────────────────────────────────────────────
 
 function Divider() {
   return <div className="w-px h-4 mx-1" style={{ background: "rgba(255,255,255,0.07)" }} />;
@@ -276,12 +292,12 @@ function StatPill({ value, label, color, pulse }: { value: number; label: string
 function StatusPill({ status }: { status: string }) {
   return (
     <div className="flex items-center gap-1.5 px-2">
-      {status === "ok" && <span className="live-dot live-dot-cyan" style={{ width: 5, height: 5 }} />}
+      {status === "ok"         && <span className="live-dot live-dot-cyan" style={{ width: 5, height: 5 }} />}
       {status === "connecting" && <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />}
-      {status === "error" && <WifiOff className="w-3 h-3 text-red-500" />}
+      {status === "error"      && <WifiOff className="w-3 h-3 text-red-500" />}
       <span className={clsx("text-[9px] font-mono uppercase tracking-widest",
         status === "ok" ? "text-[#00C8D4]" : status === "connecting" ? "text-amber-400" : "text-red-500")}>
-        {status === "ok" ? "Live" : status === "connecting" ? "Sync" : "Off"}
+        {status === "ok" ? "Live" : status === "connecting" ? "Sync" : "Offline"}
       </span>
     </div>
   );

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Globe, History, Satellite, Radio, BookOpen, Wifi, WifiOff, Loader2, Clock } from "lucide-react";
+import { Globe, History, Satellite, Radio, BookOpen, WifiOff, Loader2 } from "lucide-react";
 import { clsx } from "clsx";
 import { useServerStatus } from "@/hooks/use-server-status";
 import { useAlerts } from "@/hooks/use-alerts";
@@ -7,18 +7,18 @@ import { BreakingTicker } from "@/components/breaking-ticker";
 import { useState, useEffect } from "react";
 
 const NAV_ITEMS = [
-  { href: "/",        icon: Globe,   label: "Globe"      },
-  { href: "/history", icon: History, label: "Historique" },
-  { href: "/live",    icon: Satellite, label: "Espace"     },
-  { href: "/radio",   icon: Radio,   label: "Radio"      },
-  { href: "/guide",   icon: BookOpen,label: "Guide"      },
+  { href: "/",        icon: Globe,     label: "Globe"    },
+  { href: "/history", icon: History,   label: "History"  },
+  { href: "/live",    icon: Satellite, label: "Live"     },
+  { href: "/radio",   icon: Radio,     label: "Radio"    },
+  { href: "/guide",   icon: BookOpen,  label: "Guide"    },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const [location] = useLocation();
-  const serverStatus = useServerStatus();
+  const [location]     = useLocation();
+  const serverStatus   = useServerStatus();
   const { data: alerts } = useAlerts();
-  const [time, setTime] = useState(new Date());
+  const [time, setTime]  = useState(new Date());
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
@@ -31,12 +31,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden" style={{ background: "#060810" }}>
 
-      {/* ── Top bar ─────────────────────────────────────────────────────────── */}
-      <header className="shrink-0 h-11 flex items-center px-4 gap-4 z-50 relative"
-        style={{ background: "rgba(6,8,16,0.98)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-
+      {/* ── Top bar ──────────────────────────────────────────────────────────── */}
+      <header
+        className="shrink-0 h-11 flex items-center px-4 gap-4 z-50 relative select-none"
+        style={{ background: "rgba(6,8,16,0.98)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+      >
         {/* Logo */}
-        <div className="flex items-center gap-2.5 shrink-0 select-none w-36">
+        <div className="flex items-center gap-2.5 shrink-0 w-36">
           <img src="/argos.svg" alt="ARGOS" className="h-6 w-auto" />
           <div className="flex flex-col leading-none">
             <div className="flex items-center gap-1.5">
@@ -46,54 +47,60 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 V7
               </span>
             </div>
-            <span className="text-[7px] font-mono text-white/20 tracking-widest">INTELLIGENCE</span>
+            <span className="text-[7px] font-mono text-white/20 tracking-widest uppercase">Intelligence</span>
           </div>
         </div>
 
         {/* Navigation — center */}
-        <nav className="flex-1 flex items-center justify-center gap-1">
+        <nav className="flex-1 flex items-center justify-center gap-0.5">
           {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
             const active = location === href;
             return (
               <Link key={href} href={href}
                 className={clsx(
                   "relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium tracking-wide transition-all duration-150",
-                  active
-                    ? "text-[#00C8D4] nav-active-underline"
-                    : "text-white/35 hover:text-white/65"
+                  active ? "text-[#00C8D4]" : "text-white/35 hover:text-white/65 hover:bg-white/[0.03]"
                 )}
                 style={active
                   ? { background: "rgba(0,200,212,0.07)", border: "1px solid rgba(0,200,212,0.15)" }
                   : { border: "1px solid transparent" }}>
-                <Icon className={clsx("w-3.5 h-3.5 shrink-0", active ? "text-[#00C8D4]" : "text-white/30")} />
+                <Icon className={clsx("w-3.5 h-3.5 shrink-0", active ? "text-[#00C8D4]" : "text-white/25")} />
                 <span>{label}</span>
+                {active && (
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-px rounded-full"
+                    style={{ background: "#00C8D4" }} />
+                )}
               </Link>
             );
           })}
         </nav>
 
-        {/* Right — status + time */}
+        {/* Right — alerts count + status + UTC */}
         <div className="flex items-center gap-3 shrink-0 w-36 justify-end">
           {criticalCount > 0 && (
             <div className="flex items-center gap-1.5 px-2 py-1 rounded-md"
-              style={{ background: "rgba(240,45,58,0.1)", border: "1px solid rgba(240,45,58,0.25)" }}>
-              <span className="live-dot" style={{ width: 5, height: 5 }} />
-              <span className="text-[9px] font-mono font-bold text-red-400">{criticalCount}C</span>
+              style={{ background: "rgba(240,45,58,0.10)", border: "1px solid rgba(240,45,58,0.22)" }}>
+              <span className="relative flex h-[5px] w-[5px]">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                <span className="relative inline-flex rounded-full h-[5px] w-[5px] bg-red-500" />
+              </span>
+              <span className="text-[9px] font-mono font-bold text-red-400">{criticalCount} CRIT</span>
             </div>
           )}
+
           <div className="flex items-center gap-1.5">
-            {serverStatus === "ok" && <span className="live-dot live-dot-cyan" style={{ width: 5, height: 5 }} />}
+            {serverStatus === "ok"         && <span className="live-dot live-dot-cyan" style={{ width: 5, height: 5 }} />}
             {serverStatus === "connecting" && <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />}
-            {serverStatus === "error" && <WifiOff className="w-3 h-3 text-red-500" />}
-            <span className="text-[9px] font-mono text-white/30 hidden lg:block">{timeStr}</span>
+            {serverStatus === "error"      && <WifiOff className="w-3 h-3 text-red-500" />}
+            <span className="text-[9px] font-mono text-white/25 hidden lg:block tabular-nums">{timeStr}</span>
           </div>
         </div>
       </header>
 
-      {/* Breaking ticker */}
+      {/* Breaking news ticker */}
       <BreakingTicker alerts={alerts ?? []} />
 
-      {/* Content */}
+      {/* Main content */}
       <main className="flex-1 relative overflow-hidden flex flex-col min-h-0">
         {children}
       </main>

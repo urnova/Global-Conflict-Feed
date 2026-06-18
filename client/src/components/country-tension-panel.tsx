@@ -6,12 +6,12 @@ import { useState } from "react";
 type TensionStatus = CountryTensionEntry["status"];
 
 const STATUS_META: Record<TensionStatus, { label: string; color: string; bg: string; icon: React.ReactNode; order: number }> = {
-  war:       { label: "Guerre",       color: "#F02D3A", bg: "rgba(240,45,58,0.10)",   icon: <Flame className="w-3 h-3" />,       order: 0 },
-  high:      { label: "Élevé",        color: "#EF4444", bg: "rgba(239,68,68,0.08)",   icon: <ShieldAlert className="w-3 h-3" />, order: 1 },
-  tension:   { label: "Tension",      color: "#F59E0B", bg: "rgba(245,158,11,0.08)",  icon: <AlertOctagon className="w-3 h-3" />,order: 2 },
-  sanctions: { label: "Sanctions",    color: "#A855F7", bg: "rgba(168,85,247,0.08)",  icon: <Activity className="w-3 h-3" />,    order: 3 },
-  watchlist: { label: "Surveillance", color: "#00C8D4", bg: "rgba(0,200,212,0.07)",   icon: <Eye className="w-3 h-3" />,         order: 4 },
-  stable:    { label: "Stable",       color: "#10B981", bg: "rgba(16,185,129,0.07)",  icon: <Shield className="w-3 h-3" />,      order: 5 },
+  war:       { label: "War",       color: "#F02D3A", bg: "rgba(240,45,58,0.10)",   icon: <Flame className="w-3 h-3" />,       order: 0 },
+  high:      { label: "High",      color: "#EF4444", bg: "rgba(239,68,68,0.08)",   icon: <ShieldAlert className="w-3 h-3" />, order: 1 },
+  tension:   { label: "Tension",   color: "#F59E0B", bg: "rgba(245,158,11,0.08)",  icon: <AlertOctagon className="w-3 h-3" />,order: 2 },
+  sanctions: { label: "Sanctions", color: "#A855F7", bg: "rgba(168,85,247,0.08)",  icon: <Activity className="w-3 h-3" />,    order: 3 },
+  watchlist: { label: "Watchlist", color: "#00C8D4", bg: "rgba(0,200,212,0.07)",   icon: <Eye className="w-3 h-3" />,         order: 4 },
+  stable:    { label: "Stable",    color: "#10B981", bg: "rgba(16,185,129,0.07)",  icon: <Shield className="w-3 h-3" />,      order: 5 },
 };
 
 export function getTensionStatusColor(status: TensionStatus): string {
@@ -30,10 +30,10 @@ const COUNTRY_CENTERS: Record<string, [number, number]> = {
 };
 
 const TIER_FILTERS = [
-  { key: "ALL",      label: "Tout",     statuses: ["war","high","tension","sanctions","watchlist","stable"] as TensionStatus[] },
-  { key: "GUERRE",   label: "Guerre",   statuses: ["war"] as TensionStatus[] },
-  { key: "CRITIQUE", label: "Critique", statuses: ["high","tension"] as TensionStatus[] },
-  { key: "SUIVI",    label: "Suivi",    statuses: ["sanctions","watchlist"] as TensionStatus[] },
+  { key: "ALL",      label: "All",      statuses: ["war","high","tension","sanctions","watchlist","stable"] as TensionStatus[] },
+  { key: "GUERRE",   label: "War",      statuses: ["war"] as TensionStatus[] },
+  { key: "CRITIQUE", label: "Critical", statuses: ["high","tension"] as TensionStatus[] },
+  { key: "SUIVI",    label: "Watch",    statuses: ["sanctions","watchlist"] as TensionStatus[] },
   { key: "STABLE",   label: "Stable",   statuses: ["stable"] as TensionStatus[] },
 ];
 
@@ -148,7 +148,7 @@ export function CountryTensionPanel({
           <button
             onClick={() => refetch()}
             className="text-white/20 hover:text-[#00C8D4] transition-colors p-1 rounded-md hover:bg-white/5"
-            title="Actualiser">
+            title="Refresh">
             <RefreshCw className="w-3 h-3" />
           </button>
         </div>
@@ -156,8 +156,8 @@ export function CountryTensionPanel({
         {/* Stat pills */}
         <div className="grid grid-cols-3 gap-1">
           {[
-            { label: "Guerre",  count: warCount,    color: "#F02D3A" },
-            { label: "Élevé",   count: highCount,   color: "#EF4444" },
+            { label: "War",     count: warCount,    color: "#F02D3A" },
+            { label: "High",    count: highCount,   color: "#EF4444" },
             { label: "Tension", count: tensionCount, color: "#F59E0B" },
           ].map(s => (
             <div key={s.label} className="rounded-md py-1.5 text-center"
@@ -200,7 +200,7 @@ export function CountryTensionPanel({
         ) : (
           <div className="p-8 text-center">
             <p className="text-[9px] font-mono text-white/20 leading-relaxed">
-              Aucune donnée<br />dans cette catégorie
+              No data<br />in this category
             </p>
           </div>
         )}
@@ -210,7 +210,7 @@ export function CountryTensionPanel({
       <div className="px-3 py-1.5 shrink-0 text-center"
         style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
         <span className="text-[7px] font-mono text-white/12 uppercase tracking-widest">
-          {filtered.length} pays · ARGOS Live
+          {filtered.length} countries · ARGOS Live
         </span>
       </div>
     </div>

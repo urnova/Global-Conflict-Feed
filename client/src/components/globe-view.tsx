@@ -594,7 +594,7 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng }: GlobeViewProps
           {countryPanel.alerts.length === 0 ? (
             <div className="p-4 text-center text-muted-foreground text-xs font-mono">
               <Crosshair className="w-6 h-6 mx-auto mb-2 opacity-30" />
-              Aucun incident récent.
+              No recent incidents.
             </div>
           ) : (
             <div className="overflow-y-auto max-h-56 divide-y divide-white/5">

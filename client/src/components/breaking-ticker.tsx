@@ -58,7 +58,7 @@ export function BreakingTicker({ alerts }: { alerts: Alert[] }) {
                 <span className="text-white/70">{title}</span>
                 <span className="text-white/20">·</span>
                 <span className="text-white/25 text-[8.5px]">
-                  {a.timestamp ? formatDistanceToNow(new Date(a.timestamp), { addSuffix: true }) : "maintenant"}
+                  {a.timestamp ? formatDistanceToNow(new Date(a.timestamp), { addSuffix: true }) : "just now"}
                 </span>
                 <span className="text-white/8 ml-2">│</span>
               </span>

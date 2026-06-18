@@ -2,7 +2,6 @@ import { AppLayout } from "@/components/layout";
 import { useAlerts } from "@/hooks/use-alerts";
 import { useBriefings } from "@/hooks/use-briefings";
 import { format, formatDistanceToNow } from "date-fns";
-import { fr } from "date-fns/locale";
 import { Search, Globe2, AlertTriangle, BarChart3, ExternalLink, Brain,
   Navigation2, Zap, Activity, Shield, ChevronDown, ChevronUp } from "lucide-react";
 import { useState, useMemo } from "react";
@@ -20,17 +19,17 @@ const SEV_STYLES: Record<string, { color: string; bg: string }> = {
 };
 
 const TYPE_LABELS: Record<string, string> = {
-  missile: "Missile", airstrike: "Frappe aéro", artillery: "Artillerie",
+  missile: "Missile", airstrike: "Airstrike", artillery: "Artillery",
   naval: "Naval", conflict: "Combat", explosion: "Explosion",
-  chemical: "Chimique", nuclear: "Nucléaire", cyber: "Cyber",
-  massacre: "Massacre", terrorism: "Terrorisme", coup: "Coup d'État",
-  earthquake: "Séisme", tsunami: "Tsunami", volcano: "Volcan",
-  flood: "Inondation", wildfire: "Incendie", avalanche: "Avalanche",
-  hurricane: "Ouragan", cyclone: "Cyclone", tornado: "Tornade",
-  storm: "Tempête", heatwave: "Canicule", pandemic: "Pandémie",
-  epidemic: "Épidémie", diplomatic: "Diplomatie", political: "Politique",
-  sanctions: "Sanctions", protest: "Manifestation", humanitarian: "Humanitaire",
-  breaking: "Breaking", warning: "Alerte", info: "Info",
+  chemical: "Chemical", nuclear: "Nuclear", cyber: "Cyber",
+  massacre: "Massacre", terrorism: "Terrorism", coup: "Coup",
+  earthquake: "Earthquake", tsunami: "Tsunami", volcano: "Volcano",
+  flood: "Flood", wildfire: "Wildfire", avalanche: "Avalanche",
+  hurricane: "Hurricane", cyclone: "Cyclone", tornado: "Tornado",
+  storm: "Storm", heatwave: "Heatwave", pandemic: "Pandemic",
+  epidemic: "Epidemic", diplomatic: "Diplomatic", political: "Political",
+  sanctions: "Sanctions", protest: "Protest", humanitarian: "Humanitarian",
+  breaking: "Breaking", warning: "Alert", info: "Info",
 };
 
 function FlagImg({ code }: { code?: string | null }) {
@@ -45,7 +44,7 @@ function FlagImg({ code }: { code?: string | null }) {
 
 function SeverityBadge({ sev }: { sev: string }) {
   const s = SEV_STYLES[sev] ?? SEV_STYLES.low;
-  const labels: Record<string, string> = { critical: "CRITIQUE", high: "ÉLEVÉ", medium: "MOYEN", low: "BAS" };
+  const labels: Record<string, string> = { critical: "CRITICAL", high: "HIGH", medium: "MEDIUM", low: "LOW" };
   return (
     <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase font-mono"
       style={{ color: s.color, background: s.bg, border: `1px solid ${s.color}25` }}>
@@ -193,9 +192,9 @@ export default function History() {
                 <BarChart3 className="w-5 h-5 text-[#00C8D4]" />
               </div>
               <div>
-                <h1 className="text-xl font-bold tracking-tight text-white/90">Archives mondiales</h1>
+                <h1 className="text-xl font-bold tracking-tight text-white/90">Global Archives</h1>
                 <p className="text-[10px] font-mono text-white/30 mt-0.5">
-                  Base ARGOS — incidents géolocalisés
+                  ARGOS Database — geolocated incidents
                 </p>
               </div>
             </div>
@@ -205,7 +204,7 @@ export default function History() {
               style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
               {([
                 { key: "alerts",    label: "Incidents",   icon: <AlertTriangle className="w-3.5 h-3.5" /> },
-                { key: "briefings", label: "Briefings IA",icon: <Brain className="w-3.5 h-3.5" /> },
+                { key: "briefings", label: "AI Briefings",icon: <Brain className="w-3.5 h-3.5" /> },
               ] as const).map(tab => (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key)}
                   className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-[11px] font-medium transition-all"
@@ -226,7 +225,7 @@ export default function History() {
                 {briefLoad && (
                   <div className="rounded-xl p-8 text-center text-white/20 font-mono text-xs animate-pulse"
                     style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                    Chargement des briefings…
+                    Loading briefings…
                   </div>
                 )}
                 {!briefLoad && (!briefings || briefings.length === 0) && (
@@ -234,13 +233,13 @@ export default function History() {
                     style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
                     <Brain className="w-8 h-8 text-white/10 mx-auto mb-3" />
                     <p className="text-[11px] font-mono text-white/25">
-                      Aucun briefing disponible.<br />Le premier sera généré automatiquement dans 3 minutes après le démarrage.
+                      No briefings available yet.<br />The first one will be generated automatically ~3 minutes after startup.
                     </p>
                   </div>
                 )}
                 {briefings?.map(b => {
                   const parsedCountries: string[] = Array.isArray(b.topCountries) ? b.topCountries : [];
-                  const ago = formatDistanceToNow(new Date(b.generatedAt), { addSuffix: true, locale: fr });
+                  const ago = formatDistanceToNow(new Date(b.generatedAt), { addSuffix: true });
                   return (
                     <div key={b.id} className="rounded-xl overflow-hidden"
                       style={{ background: "rgba(6,8,16,0.95)", border: "1px solid rgba(0,200,212,0.12)" }}>
@@ -252,7 +251,7 @@ export default function History() {
                             Argos IA · {format(new Date(b.generatedAt), "dd/MM/yyyy HH:mm")}
                           </span>
                         </div>
-                        <span className="text-[9px] font-mono text-white/25">{b.alertCount} événements · {ago}</span>
+                        <span className="text-[9px] font-mono text-white/25">{b.alertCount} events · {ago}</span>
                       </div>
                       {parsedCountries.length > 0 && (
                         <div className="flex flex-wrap gap-1.5 px-4 pt-3">
@@ -280,10 +279,10 @@ export default function History() {
                 {stats && (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
-                      { label: "Total",       value: stats.total,    color: "#00C8D4" },
-                      { label: "Critiques",   value: stats.critical, color: "#F02D3A" },
-                      { label: "Élevés",      value: stats.high,     color: "#F59E0B" },
-                      { label: "Frappes",     value: stats.missiles, color: "#EF4444" },
+                      { label: "Total",    value: stats.total,    color: "#00C8D4" },
+                      { label: "Critical", value: stats.critical, color: "#F02D3A" },
+                      { label: "High",     value: stats.high,     color: "#F59E0B" },
+                      { label: "Strikes",  value: stats.missiles, color: "#EF4444" },
                     ].map(s => (
                       <div key={s.label} className="rounded-xl p-4"
                         style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
@@ -305,7 +304,7 @@ export default function History() {
                     <Search className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-white/20" />
                     <input
                       type="text"
-                      placeholder="Rechercher…"
+                      placeholder="Search…"
                       className="pl-7 pr-3 py-1.5 rounded-lg text-[11px] font-mono text-white/60 placeholder:text-white/20 outline-none w-48"
                       style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
                       value={search}
@@ -313,24 +312,24 @@ export default function History() {
                     />
                   </div>
                   <Select value={typeFilter} onChange={setTypeFilter}>
-                    <option value="all">Tous types</option>
+                    <option value="all">All types</option>
                     {Object.entries(TYPE_LABELS).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
                     ))}
                   </Select>
                   <Select value={severityFilter} onChange={setSevFilter}>
-                    <option value="all">Toutes sévérités</option>
-                    <option value="critical">Critique</option>
-                    <option value="high">Élevé</option>
-                    <option value="medium">Moyen</option>
-                    <option value="low">Bas</option>
+                    <option value="all">All severities</option>
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
                   </Select>
                   <Select value={countryFilter} onChange={setCountryFilter}>
-                    <option value="all">Tous pays</option>
+                    <option value="all">All countries</option>
                     {countries.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                   </Select>
                   <span className="ml-auto text-[9px] font-mono text-white/25">
-                    {filtered.length} résultat{filtered.length !== 1 ? "s" : ""}
+                    {filtered.length} result{filtered.length !== 1 ? "s" : ""}
                   </span>
                 </div>
 
@@ -340,23 +339,23 @@ export default function History() {
                   {/* Header row */}
                   <div className="flex items-center gap-3 px-4 py-2.5 text-[9px] font-mono font-semibold uppercase tracking-widest text-white/25"
                     style={{ background: "rgba(255,255,255,0.02)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                    <span className="w-24 shrink-0">Date/Heure</span>
+                    <span className="w-24 shrink-0">Date/Time</span>
                     <span className="w-24 shrink-0">Type</span>
-                    <span className="w-28 shrink-0">Pays</span>
+                    <span className="w-28 shrink-0">Country</span>
                     <span className="flex-1">Incident</span>
-                    <span className="shrink-0">Sévérité</span>
+                    <span className="shrink-0">Severity</span>
                     <span className="w-8 shrink-0 text-center">Src</span>
                     <span className="w-4 shrink-0" />
                   </div>
 
                   {isLoading ? (
                     <div className="p-12 text-center">
-                      <div className="text-[11px] font-mono text-white/20 animate-pulse">Acquisition des données…</div>
+                      <div className="text-[11px] font-mono text-white/20 animate-pulse">Acquiring data…</div>
                     </div>
                   ) : filtered.length === 0 ? (
                     <div className="p-12 text-center">
                       <Globe2 className="w-8 h-8 text-white/8 mx-auto mb-3" />
-                      <p className="text-[10px] font-mono text-white/20">Aucun incident trouvé</p>
+                      <p className="text-[10px] font-mono text-white/20">No incidents found</p>
                     </div>
                   ) : (
                     <div className="relative">

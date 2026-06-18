@@ -687,7 +687,7 @@ function CityDashboard({ city, country, onBack }: {
               />
               <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-red-600/90 px-2 py-1 rounded-lg pointer-events-none">
                 <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                <span className="text-[8px] font-bold text-white uppercase tracking-wider">EN DIRECT</span>
+                <span className="text-[8px] font-bold text-white uppercase tracking-wider">LIVE</span>
               </div>
               <div className="absolute bottom-3 left-3 right-3 bg-black/70 backdrop-blur-md px-3 py-2 rounded-xl pointer-events-none flex items-center justify-between">
                 <div>
@@ -705,7 +705,7 @@ function CityDashboard({ city, country, onBack }: {
               <div>
                 <div className="text-sm font-bold text-white/60 mb-1">{city.name}</div>
                 <div className="text-[10px] font-mono text-white/25 max-w-xs">
-                  Les flux caméras de cette ville nécessitent un navigateur externe en raison des restrictions d'intégration.
+                  Camera streams for this city require an external browser due to embed restrictions.
                 </div>
               </div>
               {city.skylineUrl && (
@@ -717,7 +717,7 @@ function CityDashboard({ city, country, onBack }: {
                   style={{ background: `${color}15`, borderColor: `${color}40`, color }}
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
-                  OUVRIR LA CAMÉRA EN DIRECT
+                  OPEN LIVE CAMERA
                 </a>
               )}
             </div>
@@ -730,7 +730,7 @@ function CityDashboard({ city, country, onBack }: {
           <div className="rounded-2xl border border-white/8 bg-black/60 p-3.5">
             <div className="flex items-center gap-1.5 mb-2">
               <Clock className="w-3 h-3 text-primary/50" />
-              <span className="text-[8px] font-bold uppercase tracking-widest text-primary/50">Heure locale</span>
+              <span className="text-[8px] font-bold uppercase tracking-widest text-primary/50">Local Time</span>
             </div>
             <div className="text-xl font-black font-mono text-primary">{localTime}</div>
             <div className="text-[9px] font-mono text-white/25 mt-0.5 capitalize">{localDate}</div>
@@ -740,14 +740,14 @@ function CityDashboard({ city, country, onBack }: {
           <div className="rounded-2xl border border-white/8 bg-black/60 p-3.5">
             <div className="flex items-center gap-1.5 mb-2">
               <Thermometer className="w-3 h-3 text-primary/50" />
-              <span className="text-[8px] font-bold uppercase tracking-widest text-primary/50">Météo</span>
+              <span className="text-[8px] font-bold uppercase tracking-widest text-primary/50">Weather</span>
             </div>
-            {weatherLoading && <div className="text-[9px] font-mono text-white/20 animate-pulse py-1">Chargement…</div>}
+            {weatherLoading && <div className="text-[9px] font-mono text-white/20 animate-pulse py-1">Loading…</div>}
             {weather && (
               <div className="space-y-1.5">
                 <div className="flex items-baseline justify-between">
                   <span className="text-2xl font-black text-white">{weather.temp}°C</span>
-                  <span className="text-[9px] font-mono text-white/30">ressenti {weather.feelsLike}°</span>
+                  <span className="text-[9px] font-mono text-white/30">feels like {weather.feelsLike}°</span>
                 </div>
                 <div className="text-[9px] font-mono text-white/40 leading-snug">{weather.condition}</div>
                 <div className="flex items-center gap-1 text-[9px] font-mono text-white/30 mt-1">
@@ -756,11 +756,11 @@ function CityDashboard({ city, country, onBack }: {
                 <div className="flex items-center gap-1 text-[9px] font-mono text-white/30">
                   <Eye className="w-2.5 h-2.5" /><span>{weather.visibility} km vis.</span>
                 </div>
-                <div className="text-[8px] font-mono text-white/20">Humidité {weather.humidity}%</div>
+                <div className="text-[8px] font-mono text-white/20">Humidity {weather.humidity}%</div>
               </div>
             )}
             {!weatherLoading && !weather && (
-              <div className="text-[9px] font-mono text-white/20 py-1">Indisponible</div>
+              <div className="text-[9px] font-mono text-white/20 py-1">Unavailable</div>
             )}
           </div>
 
@@ -768,10 +768,10 @@ function CityDashboard({ city, country, onBack }: {
           <div className="rounded-2xl border border-white/8 bg-black/60 p-3.5 flex-1 min-h-[100px] overflow-y-auto">
             <div className="flex items-center gap-1.5 mb-2">
               <AlertTriangle className="w-3 h-3 text-destructive/50" />
-              <span className="text-[8px] font-bold uppercase tracking-widest text-destructive/50">Alertes 24h</span>
+              <span className="text-[8px] font-bold uppercase tracking-widest text-destructive/50">Alerts 24h</span>
             </div>
             {countryAlerts.length === 0 ? (
-              <div className="text-[9px] font-mono text-white/20">Aucune alerte active</div>
+              <div className="text-[9px] font-mono text-white/20">No active alerts</div>
             ) : (
               <div className="space-y-2">
                 {countryAlerts.map(a => (
@@ -802,7 +802,7 @@ function OrbitalStats({ sat, accentColor }: { sat: ISSData; accentColor: string 
         { label: 'Latitude', value: `${sat.lat.toFixed(3)}°` },
         { label: 'Longitude', value: `${sat.lng.toFixed(3)}°` },
         { label: 'Altitude', value: `${Math.round(sat.altitude)} km` },
-        { label: 'Vitesse', value: `${(sat.velocity / 3600).toFixed(2)} km/s` },
+        { label: 'Speed', value: `${(sat.velocity / 3600).toFixed(2)} km/s` },
       ].map(({ label, value }) => (
         <div key={label} className="rounded-xl border bg-black/60 p-3 text-center"
           style={{ borderColor: `${accentColor}20` }}>
@@ -895,7 +895,7 @@ function ISSDetail({ onBack }: { onBack?: () => void }) {
                 <div className="w-16 h-16 rounded-full border-2 border-primary/30 animate-pulse"
                   style={{ background: 'radial-gradient(ellipse, #002d4a 0%, #000820 100%)' }} />
                 <span className="text-[9px] font-mono text-white/30 animate-pulse">
-                  {epicLoading ? 'Chargement imagerie NASA…' : 'Imagerie indisponible'}
+                  {epicLoading ? 'Loading NASA imagery…' : 'Imagery unavailable'}
                 </span>
               </div>
             )}
@@ -907,7 +907,7 @@ function ISSDetail({ onBack }: { onBack?: () => void }) {
             {/* LIVE badge top-left */}
             <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-red-600/90 backdrop-blur-sm px-2 py-1 rounded-lg pointer-events-none">
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-              <span className="text-[8px] font-bold text-white uppercase tracking-wider">EN DIRECT</span>
+              <span className="text-[8px] font-bold text-white uppercase tracking-wider">LIVE</span>
             </div>
 
             {/* Image counter top-right */}
@@ -1005,10 +1005,10 @@ function ISSDetail({ onBack }: { onBack?: () => void }) {
           <div className="rounded-2xl border border-white/8 bg-black/60 p-3.5 flex-1 overflow-y-auto">
             <div className="flex items-center gap-1.5 mb-2.5">
               <Zap className="w-3 h-3 text-amber-400/50" />
-              <span className="text-[8px] font-bold uppercase tracking-widest text-amber-400/50">Alertes crit/élevées · 12h</span>
+              <span className="text-[8px] font-bold uppercase tracking-widest text-amber-400/50">Critical/High Alerts · 12h</span>
             </div>
             {critAlerts.length === 0 ? (
-              <div className="text-[9px] font-mono text-white/20">Aucune alerte récente</div>
+              <div className="text-[9px] font-mono text-white/20">No recent alerts</div>
             ) : (
               <div className="space-y-2">
                 {critAlerts.map(a => (
@@ -1025,7 +1025,7 @@ function ISSDetail({ onBack }: { onBack?: () => void }) {
 
           {/* NASA links */}
           <div className="rounded-2xl border border-white/8 bg-black/60 p-3.5 space-y-2">
-            <div className="text-[8px] font-bold uppercase tracking-widest text-white/25 mb-2">Sources officielles</div>
+            <div className="text-[8px] font-bold uppercase tracking-widest text-white/25 mb-2">Official Sources</div>
             {[
               { label: 'NASA TV Live', url: 'https://www.nasa.gov/nasatv/' },
               { label: 'Tracker ISS (NASA)', url: 'https://spotthestation.nasa.gov/tracking_map.cfm' },
@@ -1178,10 +1178,10 @@ function TiangongDetail({ onBack }: { onBack?: () => void }) {
           <div className="rounded-2xl border border-white/8 bg-black/60 p-3.5 flex-1 overflow-y-auto">
             <div className="flex items-center gap-1.5 mb-2.5">
               <Zap className="w-3 h-3 text-amber-400/50" />
-              <span className="text-[8px] font-bold uppercase tracking-widest text-amber-400/50">Alertes mondiales · 12h</span>
+              <span className="text-[8px] font-bold uppercase tracking-widest text-amber-400/50">Global Alerts · 12h</span>
             </div>
             {critAlerts.length === 0 ? (
-              <div className="text-[9px] font-mono text-white/20">Aucune alerte récente</div>
+              <div className="text-[9px] font-mono text-white/20">No recent alerts</div>
             ) : (
               <div className="space-y-2">
                 {critAlerts.map(a => (
@@ -1345,7 +1345,7 @@ function LaunchCard({ launch, featured }: { launch: Launch; featured?: boolean }
             style={{ background: `${aColor}15`, border: `1px solid ${aColor}35`, color: aColor }}
           >
             <Play className="w-3 h-3" />
-            {isLive ? 'REGARDER LE DIRECT ↗' : 'VOIR LE WEBCAST ↗'}
+            {isLive ? 'WATCH LIVE ↗' : 'VIEW WEBCAST ↗'}
           </a>
         ) : null}
       </div>
@@ -1388,7 +1388,7 @@ function LaunchesView() {
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.4)' }}
           >
             <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
-            Actualiser
+            Refresh
           </button>
         </div>
       </div>
@@ -1397,7 +1397,7 @@ function LaunchesView() {
       {loading && (
         <div className="flex items-center justify-center py-16 gap-3 text-[10px] font-mono text-white/30">
           <Rocket className="w-5 h-5 animate-bounce" />
-          <span className="animate-pulse">Récupération des données Launch Library…</span>
+          <span className="animate-pulse">Fetching Launch Library data…</span>
         </div>
       )}
 
