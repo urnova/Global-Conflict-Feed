@@ -1,10 +1,10 @@
 import { AppLayout } from "@/components/layout";
 import {
   Navigation2, Zap, AlertTriangle,
-  Globe2, Lock, Radio, Clock, Database, BookOpen,
+  Globe2, Lock, Clock, Database, BookOpen,
   Activity, Satellite, Brain, MessageSquare,
   MapPin, Waves, Siren, Filter, MousePointer2,
-  ChevronRight, TrendingUp, Server, Wifi,
+  ChevronRight, TrendingUp, Server, Wifi, WifiOff,
 } from "lucide-react";
 
 // ── Data ─────────────────────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ const SEVERITIES = [
 
 const SOURCES = [
   {
-    icon: <Radio className="w-5 h-5" />, color: "#FFB800",
+    icon: <Globe2 className="w-5 h-5" />, color: "#FFB800",
     name: "Flux RSS — Presse mondiale", tag: "RSS",
     items: ["Reuters", "BBC World", "Al Jazeera", "AFP (rss.app)", "France24 EN", "DW World", "AFP · BNO · Reuters via Nitter/X"],
     cadence: "10 min", coverage: "Mondiale",
@@ -109,9 +109,10 @@ const GLOBE_FEATURES = [
 const AI_STEPS = [
   { step: "01", color: "#FFB800", title: "Ingestion", desc: "Article RSS/Telegram inséré en DB avec aiVerified = null." },
   { step: "02", color: "#9B6DFF", title: "Classification + Résumé IA", desc: "Groq reçoit titre + description (600 car). Retourne JSON : { relevant, type, severity, label, summary }. Le résumé (1-2 phrases FR, max 200 car) remplace la description anglaise en DB." },
-  { step: "03", color: "#00FF88", title: "Alerte validée", desc: "aiVerified = true · label et description en français · type/sévérité corrigés · visible dans le flux et sur le globe." },
+  { step: "03", color: "#00FF88", title: "Alerte validée", desc: "aiVerified = true · label et description en français · type/sévérité corrigés · visible dans le flux, l'historique et sur le globe." },
   { step: "04", color: "#00F0FF", title: "Briefing horaire", desc: "Toutes les heures, Groq génère un briefing stratégique 24h (max 200 mots) depuis les 60 dernières alertes. Persisté en DB, identique pour tous les utilisateurs." },
-  { step: "✕",  color: "#FF003C", title: "Rejet silencieux", desc: "aiVerified = false · isActive = false · jamais affiché ni sur le globe ni dans l'historique." },
+  { step: "05", color: "#00C8D4", title: "Classification tensions pays", desc: "Toutes les heures, Groq analyse les 48h d'alertes et attribue à chaque pays actif un statut : war / high / tension / sanctions / watchlist / stable, avec une raison en français. Cache 1h. Visible sur les polygones globe et dans le panneau Tensions." },
+  { step: "✕",  color: "#FF003C", title: "Rejet silencieux", desc: "aiVerified = false · isActive = false · jamais affiché ni sur le globe, ni dans le flux, ni dans l'historique." },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -131,18 +132,18 @@ export default function Guide() {
               <div className="flex items-center gap-2.5 mb-1">
                 <h1 className="text-2xl font-black uppercase tracking-tight text-glow-primary">Guide Argos</h1>
                 <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded border"
-                  style={{ background: 'rgba(0,240,255,0.1)', color: '#00F0FF', borderColor: 'rgba(0,240,255,0.3)' }}>V6.2</span>
+                  style={{ background: 'rgba(0,240,255,0.1)', color: '#00F0FF', borderColor: 'rgba(0,240,255,0.3)' }}>V7</span>
               </div>
               <p className="text-muted-foreground text-xs font-mono leading-relaxed">
-                Architecture · Sources · Globe 3D · Vérification IA · API REST
+                Architecture · Sources · Globe 3D · Vérification IA · Tensions pays · API REST
               </p>
               {/* Stats strip */}
               <div className="flex flex-wrap gap-3 mt-3">
                 {[
-                  { icon: <Database className="w-3 h-3" />, label: "6 sources", sub: "indépendantes" },
-                  { icon: <Brain className="w-3 h-3" />, label: "IA Groq", sub: "label + résumé + briefing" },
-                  { icon: <Satellite className="w-3 h-3" />, label: "ISS Tracker", sub: "wheretheiss.at" },
-                  { icon: <Globe2 className="w-3 h-3" />, label: "Situation Room", sub: "webcams + météo" },
+                  { icon: <Database className="w-3 h-3" />, label: "7 sources", sub: "indépendantes" },
+                  { icon: <Brain className="w-3 h-3" />, label: "IA Groq", sub: "alertes + briefing + tensions" },
+                  { icon: <TrendingUp className="w-3 h-3" />, label: "Tensions IA", sub: "classification horaire" },
+                  { icon: <WifiOff className="w-3 h-3" />, label: "Offline mode", sub: "SIGNAL LOST automatique" },
                 ].map((s, i) => (
                   <span key={i} className="flex items-center gap-1.5 text-[10px] font-mono bg-white/5 px-2.5 py-1.5 rounded-lg border border-white/10">
                     <span className="text-primary">{s.icon}</span>
@@ -156,34 +157,36 @@ export default function Guide() {
 
           {/* ── Comment fonctionne Argos ── */}
           <section>
-            <SectionTitle icon={<Activity className="w-4 h-4" />} title="Comment fonctionne ARGOS V6.2 ?" />
+            <SectionTitle icon={<Activity className="w-4 h-4" />} title="Comment fonctionne ARGOS V7 ?" />
             <div className="glass-panel rounded-xl border border-white/10 p-5 space-y-3 text-sm text-muted-foreground leading-relaxed">
               <p>
-                ARGOS collecte en continu des données de <strong className="text-foreground">6 sources indépendantes</strong> — flux RSS presse mondiale,
-                canaux Telegram OSINT (via RSSHub), NASA FIRMS satellite, UCDP GED historique, alertes raids Ukraine (alerts.in.ua) et classification Groq AI — et les affiche en temps quasi-réel sur un globe 3D interactif.
+                ARGOS collecte en continu des données de <strong className="text-foreground">7 sources indépendantes</strong> — flux RSS presse mondiale,
+                canaux Telegram OSINT (via RSSHub), NASA FIRMS satellite, UCDP GED historique, alertes raids Ukraine (alerts.in.ua),
+                USGS séismes et GDACS catastrophes naturelles — et les affiche en temps quasi-réel sur un globe 3D interactif.
               </p>
               <p>
-                Chaque article RSS/Telegram est immédiatement <strong className="text-foreground">analysé par Groq AI</strong> (llama-3.1-8b) :
+                Chaque article est immédiatement <strong className="text-foreground">analysé par Groq AI</strong> (llama-3.1-8b) :
                 les contenus non militaires/géopolitiques sont rejetés silencieusement ; les alertes pertinentes reçoivent
                 un <strong className="text-foreground">label français</strong>, un type et une sévérité corrigés.
+                Sans clé Groq, les alertes ne passent pas — le système impose une vérification IA obligatoire.
               </p>
               <p>
-                Les mises à jour temps réel sont transmises via <strong className="text-foreground">SSE (Server-Sent Events)</strong> —
-                compatible Netlify Functions et tout hébergement serverless. Le client se reconnecte automatiquement
-                et rejoue les alertes manquées grâce au champ <code className="text-primary/80 text-[10px] bg-white/5 px-1 rounded">Last-Event-ID</code>.
+                <strong className="text-foreground">Classification tensions pays (V7) :</strong> Toutes les heures, Groq analyse
+                les 48 dernières heures d'alertes et attribue à chaque pays actif un statut de tension
+                (<em>war / high / tension / sanctions / watchlist / stable</em>) avec une raison en français.
+                Ces données alimentent les polygones colorés du globe et le panneau Tensions.
               </p>
               <p>
-                <strong className="text-foreground">Nouveautés V6.2 :</strong> LiveView Situation Room restructuré en <strong className="text-foreground">drill-down 3 niveaux</strong> (galerie pays → villes → dashboard caméra 16:9 + météo + alertes),
-                barre de recherche pays, breadcrumb navigable, ISS entrée spéciale directe. Radio OSINT : <strong className="text-foreground">player global sticky</strong> avec visualiseur spectre
-                affiché lors de la lecture, cards stations compactes. Panel Tensions Mondiales : seuil abaissé pour afficher
-                les données statiques sans alertes actives. Chat Argos IA : bouton d'accès "Q" dans le panel Briefing.
+                <strong className="text-foreground">Protection offline (V7) :</strong> Quand la base de données ou l'IA sont hors ligne,
+                les panneaux latéraux sont masqués, le ticker passe en mode <em>ERROR BROADCAST</em>
+                et les pages Historique et Globe affichent un écran cinématique <em>SIGNAL LOST</em>.
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
                 {[
-                  { icon: <Clock className="w-3.5 h-3.5" />, label: "Globe", value: "4h (crit/high)" },
-                  { icon: <Radio className="w-3.5 h-3.5" />, label: "Notif live", value: "< 3h" },
-                  { icon: <Database className="w-3.5 h-3.5" />, label: "Historique", value: "complet" },
-                  { icon: <Server className="w-3.5 h-3.5" />, label: "Polling fallback", value: "15s" },
+                  { icon: <Clock className="w-3.5 h-3.5" />,    label: "Globe",       value: "4h (crit/high)" },
+                  { icon: <Brain className="w-3.5 h-3.5" />,    label: "Tensions IA", value: "1h (horaire)" },
+                  { icon: <Database className="w-3.5 h-3.5" />, label: "Historique",  value: "complet" },
+                  { icon: <Server className="w-3.5 h-3.5" />,   label: "Fallback",    value: "polling 15s" },
                 ].map((item, i) => (
                   <div key={i} className="bg-white/5 rounded-lg p-3 border border-white/8 text-center">
                     <div className="flex justify-center mb-1 text-primary">{item.icon}</div>
@@ -238,13 +241,13 @@ export default function Guide() {
               </div>
               {[
                 { action: "Cliquer sur un marqueur pin", result: "Ouvre le détail de l'alerte + zoom globe vers la position" },
-                { action: "Cliquer sur un pays", result: "Panneau pays : statut tension, score, raison, liste des incidents" },
+                { action: "Cliquer sur un pays", result: "Panneau pays : statut tension IA, raison FR, liste des incidents" },
                 { action: "Cliquer alerte dans le Feed", result: "Zoom animé vers la localisation sur le globe" },
                 { action: "Glisser / scroll", result: "Rotation manuelle — désactive temporairement la rotation auto" },
-                { action: "Filtres Feed (3 lignes)", result: "Catégorie · Sévérité · Région — chaque filtre est indépendant" },
+                { action: "Tri Feed (Récent / Critique)", result: "Bascule le tri du flux entre chronologique et par sévérité" },
+                { action: "Filtres Sévérité + Région", result: "Affichage permanent — filtre le flux en temps réel" },
                 { action: "Bouton son 🔊", result: "Active/coupe les alertes sonores (bas gauche du globe)" },
                 { action: "Boutons HUD bas-gauche", result: "Masquer/afficher Tensions · Flux alertes · Briefing IA individuellement" },
-                { action: "Bouton ARGOS IA (cerveau)", result: "Ouvre le chat IA en streaming — questions géopolitiques, résumé par pays" },
               ].map((item, i) => (
                 <div key={i} className={`flex gap-3 items-start px-5 py-2.5 text-xs ${i % 2 === 0 ? 'bg-white/3' : ''} border-b border-white/5 last:border-0`}>
                   <ChevronRight className="w-3 h-3 text-primary shrink-0 mt-0.5" />
@@ -297,7 +300,7 @@ export default function Guide() {
 
           {/* ── Sources ── */}
           <section>
-            <SectionTitle icon={<TrendingUp className="w-4 h-4" />} title="Sources de données V6.2" />
+            <SectionTitle icon={<TrendingUp className="w-4 h-4" />} title="Sources de données V7" />
             <div className="space-y-3">
               {SOURCES.map(s => (
                 <div key={s.name} className="glass-panel rounded-xl border border-white/10 p-5">

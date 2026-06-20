@@ -3,6 +3,9 @@ import fs from "fs";
 import path from "path";
 
 export function serveStatic(app: Express) {
+  // On Vercel, static assets are served directly from CDN — skip Express static serving
+  if (process.env.VERCEL) return;
+
   const distPath = path.resolve(__dirname, "public");
   if (!fs.existsSync(distPath)) {
     throw new Error(

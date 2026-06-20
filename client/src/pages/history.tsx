@@ -2,6 +2,7 @@ import { AppLayout } from "@/components/layout";
 import { useAlerts } from "@/hooks/use-alerts";
 import { useBriefings } from "@/hooks/use-briefings";
 import { useServerHealth } from "@/hooks/use-server-status";
+import { ServerErrorOverlay } from "@/components/server-error-overlay";
 import { format, formatDistanceToNow } from "date-fns";
 import { Search, Globe2, AlertTriangle, BarChart3, ExternalLink, Brain,
   Navigation2, Zap, Activity, Shield, ChevronDown, ChevronUp } from "lucide-react";
@@ -181,37 +182,18 @@ export default function History() {
       });
   }, [alerts, search, typeFilter, severityFilter, countryFilter]);
 
-  if (health.db === false) {
-    return (
-      <AppLayout>
-        <div className="h-full flex flex-col items-center justify-center gap-4 select-none"
-          style={{ background: "rgba(6,8,16,0.98)" }}>
-          <div className="absolute inset-0 opacity-10 pointer-events-none" style={{
-            backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.3) 2px, rgba(0,0,0,0.3) 4px)",
-          }} />
-          <div className="relative text-center space-y-3">
-            <div className="text-[8px] font-mono font-bold uppercase tracking-[0.3em] text-red-500/50 mb-4">
-              Argos Intelligence V7
-            </div>
-            <div className="text-2xl font-black font-mono uppercase tracking-[0.15em] text-red-500">
-              SIGNAL LOST
-            </div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-red-600/40">
-              Base de données hors ligne
-            </div>
-            <div className="mt-4 flex items-center justify-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-red-600 animate-pulse" />
-              <span className="text-[9px] font-mono text-red-600/50">DATABASE UNREACHABLE</span>
-            </div>
-          </div>
-        </div>
-      </AppLayout>
-    );
-  }
-
   return (
     <AppLayout>
-      <div className="h-full flex flex-col overflow-hidden">
+      <div className="h-full flex flex-col overflow-hidden relative">
+        {/* ── Cinematic SIGNAL LOST when DB or Groq is offline ─────────────── */}
+        <ServerErrorOverlay
+          errors={{
+            db:     health.db === false,
+            groq:   health.groq === false,
+            server: false,
+          }}
+          onRetry={() => window.location.reload()}
+        />
         <div className="flex-1 overflow-y-auto scrollbar-thin">
           <div className="max-w-7xl mx-auto px-6 py-6 space-y-5">
 
