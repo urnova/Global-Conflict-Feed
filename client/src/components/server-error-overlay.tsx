@@ -51,7 +51,7 @@ export function ServerErrorOverlay({ errors, onRetry }: Props) {
   const faultCode = tick.toString(16).toUpperCase().padStart(4, "0");
 
   return (
-    <div className="fixed inset-0 z-[9999] overflow-hidden pointer-events-auto select-none">
+    <div className="absolute inset-0 z-40 overflow-hidden pointer-events-auto select-none">
 
       {/* ── Dark backdrop ─────────────────────────────────────────────────── */}
       <div className="absolute inset-0"

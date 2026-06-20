@@ -88,20 +88,16 @@ function DesktopDashboard() {
       )}
       <CriticalAlertOverlay alerts={alerts ?? []} />
 
-      {/* Cinematic offline overlay — covers entire app */}
-      {showErrorOverlay && (
-        <ServerErrorOverlay errors={errorDetails} onRetry={handleRetry} />
-      )}
-
       <AppLayout>
         <div className="flex h-full min-h-0 overflow-hidden">
 
           {/* ── LEFT — Tension panel ─────────────────────────────────────── */}
           <div className={clsx(
-            "h-full transition-all duration-300 ease-in-out overflow-hidden shrink-0",
+            "relative h-full transition-all duration-300 ease-in-out overflow-hidden shrink-0",
             showLeft ? "w-[220px]" : "w-0"
           )}>
             {showLeft && <CountryTensionPanel onCountryClick={handleCountryFocus} />}
+            {showLeft && showErrorOverlay && <PanelErrorOverlay />}
           </div>
 
           {/* ── CENTER — Globe ───────────────────────────────────────────── */}
@@ -139,6 +135,11 @@ function DesktopDashboard() {
               onToggleFeed={() => { setRightTab("feed"); setShowRight(true); }}
               showFeed={rightTab === "feed" && showRight}
             />
+
+            {/* Cinematic error overlay — scoped to globe area only */}
+            {showErrorOverlay && (
+              <ServerErrorOverlay errors={errorDetails} onRetry={handleRetry} />
+            )}
 
             {/* Bottom toolbar */}
             <div className="absolute bottom-4 left-0 right-0 z-20 flex items-center justify-center gap-2 pointer-events-none">
@@ -209,7 +210,7 @@ function DesktopDashboard() {
 
           {/* ── RIGHT — Tabbed panel (Alerts + Briefing only) ─────────────── */}
           <div className={clsx(
-            "h-full transition-all duration-300 ease-in-out overflow-hidden shrink-0 flex flex-col",
+            "relative h-full transition-all duration-300 ease-in-out overflow-hidden shrink-0 flex flex-col",
             showRight ? "w-[340px]" : "w-0"
           )} style={{ borderLeft: "1px solid rgba(255,255,255,0.06)" }}>
             {showRight && (
@@ -245,6 +246,8 @@ function DesktopDashboard() {
                 </div>
               </div>
             )}
+            {/* Panel error lockout — over right panel content */}
+            {showRight && showErrorOverlay && <PanelErrorOverlay />}
           </div>
 
         </div>
@@ -254,6 +257,77 @@ function DesktopDashboard() {
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
+
+/** Lightweight "signal lost" lockout shown over side panels when any service is down */
+function PanelErrorOverlay() {
+  const [blink, setBlink] = useState(true);
+  useEffect(() => {
+    const t = setInterval(() => setBlink(v => !v), 700);
+    return () => clearInterval(t);
+  }, []);
+
+  return (
+    <div className="absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 select-none pointer-events-none overflow-hidden"
+      style={{ background: "rgba(2,3,10,0.90)" }}>
+
+      {/* Scan-line texture */}
+      <div className="absolute inset-0 opacity-20" style={{
+        backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.2) 2px, rgba(0,0,0,0.2) 4px)",
+      }} />
+
+      {/* Left blinking strip */}
+      <div className="absolute left-0 top-0 bottom-0 w-0.5 transition-all duration-700"
+        style={{
+          background: blink
+            ? "linear-gradient(180deg, transparent, #dc2626 25%, #dc2626 75%, transparent)"
+            : "linear-gradient(180deg, transparent, #7f1d1d 25%, #7f1d1d 75%, transparent)",
+          boxShadow: blink ? "0 0 10px 2px rgba(220,38,38,0.5)" : "none",
+        }} />
+
+      {/* Right blinking strip */}
+      <div className="absolute right-0 top-0 bottom-0 w-0.5 transition-all duration-700"
+        style={{
+          background: blink
+            ? "linear-gradient(180deg, transparent, #dc2626 25%, #dc2626 75%, transparent)"
+            : "linear-gradient(180deg, transparent, #7f1d1d 25%, #7f1d1d 75%, transparent)",
+          boxShadow: blink ? "0 0 10px 2px rgba(220,38,38,0.5)" : "none",
+        }} />
+
+      {/* Corner brackets */}
+      <div className="absolute top-3 left-3 w-4 h-4 border-t border-l transition-colors duration-700"
+        style={{ borderColor: blink ? "rgba(220,38,38,0.6)" : "rgba(140,0,0,0.3)" }} />
+      <div className="absolute top-3 right-3 w-4 h-4 border-t border-r transition-colors duration-700"
+        style={{ borderColor: blink ? "rgba(220,38,38,0.6)" : "rgba(140,0,0,0.3)" }} />
+      <div className="absolute bottom-3 left-3 w-4 h-4 border-b border-l transition-colors duration-700"
+        style={{ borderColor: blink ? "rgba(220,38,38,0.6)" : "rgba(140,0,0,0.3)" }} />
+      <div className="absolute bottom-3 right-3 w-4 h-4 border-b border-r transition-colors duration-700"
+        style={{ borderColor: blink ? "rgba(220,38,38,0.6)" : "rgba(140,0,0,0.3)" }} />
+
+      {/* Content */}
+      <div className={clsx(
+        "w-8 h-8 rounded-full border flex items-center justify-center transition-all duration-700",
+        blink ? "border-red-500 shadow-[0_0_16px_4px_rgba(220,38,38,0.3)]" : "border-red-900"
+      )}>
+        <WifiOff className={clsx("w-4 h-4 transition-colors duration-700", blink ? "text-red-400" : "text-red-900")} />
+      </div>
+
+      <div className="text-center space-y-1 px-4">
+        <p className="text-[9px] font-mono font-bold uppercase tracking-[0.25em] text-red-500/60">
+          Intelligence V7
+        </p>
+        <p className={clsx(
+          "text-base font-black font-mono uppercase tracking-[0.12em] leading-tight transition-colors duration-700",
+          blink ? "text-red-400" : "text-red-800"
+        )}>
+          SIGNAL<br />LOST
+        </p>
+        <p className="text-[8px] font-mono uppercase tracking-[0.2em] text-red-600/40">
+          Error Broadcast
+        </p>
+      </div>
+    </div>
+  );
+}
 
 function Divider() {
   return <div className="w-px h-4 mx-1" style={{ background: "rgba(255,255,255,0.07)" }} />;
