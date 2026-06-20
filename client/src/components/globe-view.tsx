@@ -464,8 +464,8 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng }: GlobeViewProps
         );
       })()}
 
-      {/* HUD — coordonnées + version (bas gauche) */}
-      <div className="pointer-events-none absolute bottom-20 left-4 z-20 font-mono text-[9px] space-y-0.5"
+      {/* HUD — coordonnées + version (bas gauche, aligné avec stats droite) */}
+      <div className="pointer-events-none absolute bottom-6 left-4 z-20 font-mono text-[9px] space-y-0.5"
         style={{ color: "rgba(0,200,212,0.45)" }}>
         <div>LAT {coords.lat.toFixed(4)}°</div>
         <div>LNG {coords.lng.toFixed(4)}°</div>

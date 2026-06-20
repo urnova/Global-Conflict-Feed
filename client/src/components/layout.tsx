@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
-import { Globe, History, Satellite, Radio, BookOpen, WifiOff, Loader2 } from "lucide-react";
+import { Globe, History, Satellite, BookOpen, WifiOff, Loader2, AlertTriangle } from "lucide-react";
 import { clsx } from "clsx";
-import { useServerStatus } from "@/hooks/use-server-status";
+import { useServerStatus, useServerHealth } from "@/hooks/use-server-status";
 import { useAlerts } from "@/hooks/use-alerts";
 import { BreakingTicker } from "@/components/breaking-ticker";
 import { useState, useEffect } from "react";
@@ -10,13 +10,13 @@ const NAV_ITEMS = [
   { href: "/",        icon: Globe,     label: "Globe"    },
   { href: "/history", icon: History,   label: "History"  },
   { href: "/live",    icon: Satellite, label: "Live"     },
-  { href: "/radio",   icon: Radio,     label: "Radio"    },
   { href: "/guide",   icon: BookOpen,  label: "Guide"    },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [location]     = useLocation();
   const serverStatus   = useServerStatus();
+  const health         = useServerHealth();
   const { data: alerts } = useAlerts();
   const [time, setTime]  = useState(new Date());
 
@@ -26,7 +26,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   const criticalCount = (alerts ?? []).filter(a => a.severity === "critical").length;
-  const timeStr = time.toUTCString().slice(17, 25) + " UTC";
+  const highCount     = (alerts ?? []).filter(a => a.severity === "high").length;
+  const timeStr = time.toUTCString().slice(17, 25);
+  const isOffline = !health.groq || !health.db || serverStatus === "error";
 
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden" style={{ background: "#060810" }}>
@@ -37,7 +39,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         style={{ background: "rgba(6,8,16,0.98)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
       >
         {/* Logo */}
-        <div className="flex items-center gap-2.5 shrink-0 w-36">
+        <div className="flex items-center gap-2.5 shrink-0 w-40">
           <img src="/argos.svg" alt="ARGOS" className="h-6 w-auto" />
           <div className="flex flex-col leading-none">
             <div className="flex items-center gap-1.5">
@@ -75,30 +77,61 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* Right — alerts count + status + UTC */}
-        <div className="flex items-center gap-3 shrink-0 w-36 justify-end">
-          {criticalCount > 0 && (
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md"
-              style={{ background: "rgba(240,45,58,0.10)", border: "1px solid rgba(240,45,58,0.22)" }}>
-              <span className="relative flex h-[5px] w-[5px]">
+        {/* Right — system status bar */}
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Severity counters */}
+          {!isOffline && criticalCount > 0 && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-md font-mono"
+              style={{
+                background: "rgba(240,45,58,0.08)",
+                border: "1px solid rgba(240,45,58,0.18)",
+              }}>
+              <span className="relative flex h-[5px] w-[5px] shrink-0">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
                 <span className="relative inline-flex rounded-full h-[5px] w-[5px] bg-red-500" />
               </span>
-              <span className="text-[9px] font-mono font-bold text-red-400">{criticalCount} CRIT</span>
+              <span className="text-[9px] font-bold text-red-400 tabular-nums">{criticalCount}</span>
+              <span className="text-[8px] text-red-500/50 uppercase tracking-wider">CRIT</span>
+            </div>
+          )}
+          {!isOffline && highCount > 0 && (
+            <div className="hidden lg:flex items-center gap-1 px-2 py-1 rounded-md font-mono"
+              style={{
+                background: "rgba(245,158,11,0.07)",
+                border: "1px solid rgba(245,158,11,0.15)",
+              }}>
+              <AlertTriangle className="w-2.5 h-2.5 text-amber-500/60 shrink-0" />
+              <span className="text-[9px] font-bold text-amber-400 tabular-nums">{highCount}</span>
+              <span className="text-[8px] text-amber-500/40 uppercase tracking-wider">HIGH</span>
             </div>
           )}
 
+          {/* Separator */}
+          <div className="w-px h-4" style={{ background: "rgba(255,255,255,0.07)" }} />
+
+          {/* Connection status + UTC */}
           <div className="flex items-center gap-1.5">
-            {serverStatus === "ok"         && <span className="live-dot live-dot-cyan" style={{ width: 5, height: 5 }} />}
-            {serverStatus === "connecting" && <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />}
-            {serverStatus === "error"      && <WifiOff className="w-3 h-3 text-red-500" />}
-            <span className="text-[9px] font-mono text-white/25 hidden lg:block tabular-nums">{timeStr}</span>
+            {serverStatus === "ok" && !isOffline && (
+              <span className="live-dot live-dot-cyan" style={{ width: 5, height: 5 }} />
+            )}
+            {serverStatus === "connecting" && (
+              <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />
+            )}
+            {(serverStatus === "error" || isOffline) && (
+              <WifiOff className="w-3 h-3 text-red-500" />
+            )}
+            <span className={clsx(
+              "text-[9px] font-mono tabular-nums hidden lg:block",
+              isOffline ? "text-red-500/60" : "text-white/25"
+            )}>
+              {isOffline ? "OFFLINE" : timeStr + " UTC"}
+            </span>
           </div>
         </div>
       </header>
 
       {/* Breaking news ticker */}
-      <BreakingTicker alerts={alerts ?? []} />
+      <BreakingTicker alerts={alerts ?? []} offline={isOffline} />
 
       {/* Main content */}
       <main className="flex-1 relative overflow-hidden flex flex-col min-h-0">

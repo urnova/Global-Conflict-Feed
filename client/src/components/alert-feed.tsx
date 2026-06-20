@@ -4,7 +4,7 @@ import {
   Navigation2, Zap, FlameKindling, Anchor, Crosshair, Shield, Cpu,
   Skull, Flame, Gavel, Ban, Megaphone, Radio, AlertTriangle, Search,
   Waves, Mountain, Droplets, Wind, Tornado, CloudLightning, ThermometerSun,
-  Biohazard, HeartPulse, Globe2, SlidersHorizontal, Activity, ArrowUpDown,
+  Biohazard, HeartPulse, Globe2, Activity,
   Clock, TrendingUp
 } from "lucide-react";
 import { clsx } from "clsx";
@@ -265,7 +265,6 @@ export function AlertFeed({ mobile = false }: { mobile?: boolean }) {
   const [activeSev,     setActiveSev]     = useState("ALL");
   const [activeRegion,  setActiveRegion]  = useState("ALL");
   const [search,        setSearch]        = useState("");
-  const [showFilters,   setShowFilters]   = useState(false);
   const [sortBy,        setSortBy]        = useState<SortBy>("time");
   const prevIdsRef = useRef<Set<number>>(new Set());
 
@@ -290,7 +289,7 @@ export function AlertFeed({ mobile = false }: { mobile?: boolean }) {
     return (
       <div className="h-full flex flex-col">
         <div className="px-3 py-4 flex items-center gap-2">
-          <Radio className="w-4 h-4 text-[#00C8D4]" />
+          <span className="live-dot live-dot-cyan" style={{ width: 5, height: 5 }} />
           <span className="text-[10px] font-medium text-white/40">Acquiring live feed…</span>
         </div>
         <div className="px-3 space-y-2">
@@ -352,57 +351,73 @@ export function AlertFeed({ mobile = false }: { mobile?: boolean }) {
     <div className={clsx("h-full flex flex-col min-h-0", mobile ? "w-full" : "")}>
 
       {/* Header stats */}
-      <div className="px-3 pt-3 pb-2 shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div className="flex items-center justify-between mb-2.5">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1">
-              <span className="live-dot" style={{ width: 5, height: 5 }} />
-              <span className="text-[9px] font-mono text-white/50 uppercase tracking-wider">
-                {filtered.length}/{allAlerts.length} events
-              </span>
-            </div>
-          </div>
+      <div className="px-3 pt-3 pb-2.5 shrink-0 space-y-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+
+        {/* Row 1 — count + severity badges + sort */}
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 text-[9px] font-mono">
-              {criticalCount > 0 && (
-                <span className="font-bold px-1.5 py-0.5 rounded text-red-400"
-                  style={{ background: "rgba(240,45,58,0.12)", border: "1px solid rgba(240,45,58,0.2)" }}>
-                  {criticalCount}C
-                </span>
-              )}
-              {highCount > 0 && (
-                <span className="font-bold px-1.5 py-0.5 rounded text-amber-400"
-                  style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.2)" }}>
-                  {highCount}H
-                </span>
-              )}
-            </div>
+            <span className="live-dot" style={{ width: 5, height: 5 }} />
+            <span className="text-[9px] font-mono text-white/40 uppercase tracking-wider tabular-nums">
+              {filtered.length}/{allAlerts.length}
+            </span>
+            {criticalCount > 0 && (
+              <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded text-red-400"
+                style={{ background: "rgba(240,45,58,0.12)", border: "1px solid rgba(240,45,58,0.2)" }}>
+                {criticalCount} CRIT
+              </span>
+            )}
+            {highCount > 0 && (
+              <span className="text-[8px] font-bold font-mono px-1.5 py-0.5 rounded text-amber-400"
+                style={{ background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.18)" }}>
+                {highCount} HIGH
+              </span>
+            )}
+          </div>
+          {/* Sort toggle */}
+          <div className="flex items-center rounded-md overflow-hidden shrink-0"
+            style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
             <button
-              onClick={() => setSortBy(s => s === "severity" ? "time" : "severity")}
-              className={clsx(
-                "p-1.5 rounded-md transition-all",
-                "text-white/30 hover:text-white/60"
-              )}
-              title={sortBy === "severity" ? "Sort: severity" : "Sort: chronological"}>
-              {sortBy === "severity"
-                ? <TrendingUp className="w-3 h-3" />
-                : <Clock className="w-3 h-3" />}
+              onClick={() => setSortBy("time")}
+              className="flex items-center gap-1 px-2 py-1 text-[8px] font-mono uppercase tracking-wide transition-all"
+              style={sortBy === "time"
+                ? { background: "rgba(0,200,212,0.12)", color: "#00C8D4" }
+                : { color: "rgba(255,255,255,0.25)" }}>
+              <Clock className="w-2.5 h-2.5" />
+              Récent
             </button>
+            <div className="w-px h-4" style={{ background: "rgba(255,255,255,0.08)" }} />
             <button
-              onClick={() => setShowFilters(p => !p)}
-              className={clsx(
-                "p-1.5 rounded-md transition-all",
-                showFilters
-                  ? "text-[#00C8D4] bg-[rgba(0,200,212,0.10)]"
-                  : "text-white/30 hover:text-white/60"
-              )}
-              title="Filters">
-              <SlidersHorizontal className="w-3 h-3" />
+              onClick={() => setSortBy("severity")}
+              className="flex items-center gap-1 px-2 py-1 text-[8px] font-mono uppercase tracking-wide transition-all"
+              style={sortBy === "severity"
+                ? { background: "rgba(240,45,58,0.10)", color: "#F02D3A" }
+                : { color: "rgba(255,255,255,0.25)" }}>
+              <TrendingUp className="w-2.5 h-2.5" />
+              Critique
             </button>
           </div>
         </div>
 
-        {/* Category pills */}
+        {/* Row 2 — Search (always visible) */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-white/20" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Pays, titre, type d'événement…"
+            className="w-full pl-7 pr-3 py-1.5 rounded-md text-[10px] font-mono text-white/70 placeholder:text-white/20 outline-none"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/60 text-[10px]">
+              ×
+            </button>
+          )}
+        </div>
+
+        {/* Row 3 — Category pills */}
         <div className="flex gap-1">
           {CATS.map(c => {
             const active = activeCat === c.key;
@@ -429,69 +444,41 @@ export function AlertFeed({ mobile = false }: { mobile?: boolean }) {
           })}
         </div>
 
-        {/* Expanded filters */}
-        {showFilters && (
-          <div className="mt-2.5 space-y-2">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-white/20" />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search country, title…"
-                className="w-full pl-7 pr-3 py-1.5 rounded-md text-[10px] font-mono text-white/70 placeholder:text-white/20 outline-none"
-                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
-              />
-            </div>
-
-            {/* Severity */}
-            <div className="flex gap-1">
-              {[
-                { key: "ALL",      label: "All",      color: "#FFFFFF"  },
-                { key: "critical", label: "Critical", color: "#F02D3A" },
-                { key: "high",     label: "High",     color: "#F59E0B"  },
-                { key: "medium",   label: "Medium",   color: "#00C8D4"  },
-                { key: "low",      label: "Low",      color: "#6B7280"  },
-              ].map(s => (
-                <button
-                  key={s.key}
-                  onClick={() => setActiveSev(s.key)}
-                  className="flex-1 text-center py-1 rounded text-[8px] font-medium transition-all"
-                  style={activeSev === s.key
-                    ? { background: `${s.color}14`, color: s.color, border: `1px solid ${s.color}30` }
-                    : { color: "rgba(255,255,255,0.25)", border: "1px solid transparent" }}>
-                  {s.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Region */}
-            <div className="flex flex-wrap gap-1">
-              {Object.entries(REGIONS).map(([key, r]) => (
-                <button
-                  key={key}
-                  onClick={() => setActiveRegion(key)}
-                  className="py-0.5 px-2 rounded text-[8px] font-medium transition-all"
-                  style={activeRegion === key
-                    ? { background: "rgba(0,200,212,0.10)", color: "#00C8D4", border: "1px solid rgba(0,200,212,0.22)" }
-                    : { color: "rgba(255,255,255,0.25)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                  {r.label}
-                </button>
-              ))}
-            </div>
+        {/* Row 4 — Severity + Region filters */}
+        <div className="space-y-1.5">
+          <div className="flex gap-1">
+            {[
+              { key: "ALL",      label: "Tout",     color: "#FFFFFF"  },
+              { key: "critical", label: "Critique",  color: "#F02D3A"  },
+              { key: "high",     label: "Élevé",     color: "#F59E0B"  },
+              { key: "medium",   label: "Moyen",     color: "#00C8D4"  },
+              { key: "low",      label: "Bas",       color: "#6B7280"  },
+            ].map(s => (
+              <button
+                key={s.key}
+                onClick={() => setActiveSev(s.key)}
+                className="flex-1 text-center py-0.5 rounded text-[8px] font-medium transition-all"
+                style={activeSev === s.key
+                  ? { background: `${s.color}14`, color: s.color, border: `1px solid ${s.color}30` }
+                  : { color: "rgba(255,255,255,0.20)", border: "1px solid transparent" }}>
+                {s.label}
+              </button>
+            ))}
           </div>
-        )}
-      </div>
-
-      {/* Sort indicator */}
-      <div className="px-3 py-1.5 shrink-0 flex items-center gap-1.5"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-        {sortBy === "severity"
-          ? <TrendingUp className="w-2.5 h-2.5 text-white/20" />
-          : <Clock className="w-2.5 h-2.5 text-white/20" />}
-        <span className="text-[8px] font-mono text-white/20 uppercase tracking-wider">
-          Sorted by {sortBy === "severity" ? "severity" : "most recent"}
-        </span>
+          <div className="flex flex-wrap gap-1">
+            {Object.entries(REGIONS).map(([key, r]) => (
+              <button
+                key={key}
+                onClick={() => setActiveRegion(key)}
+                className="py-0.5 px-1.5 rounded text-[8px] font-medium transition-all"
+                style={activeRegion === key
+                  ? { background: "rgba(0,200,212,0.10)", color: "#00C8D4", border: "1px solid rgba(0,200,212,0.22)" }
+                  : { color: "rgba(255,255,255,0.22)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Alert list */}
