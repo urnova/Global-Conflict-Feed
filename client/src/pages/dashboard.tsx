@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { AppLayout } from "@/components/layout";
 import { GlobeView } from "@/components/globe-view";
 import { AlertFeed } from "@/components/alert-feed";
 import { CountryTensionPanel } from "@/components/country-tension-panel";
 import { AiSummaryPanel } from "@/components/ai-summary-panel";
-import { AiChat } from "@/components/ai-chat";
 import { LoadingScreen } from "@/components/loading-screen";
 import { CriticalAlertOverlay } from "@/components/critical-alert-overlay";
 import { ServerErrorOverlay } from "@/components/server-error-overlay";
@@ -13,12 +12,12 @@ import { useAlerts } from "@/hooks/use-alerts";
 import { useServerStatus, useServerHealth } from "@/hooks/use-server-status";
 import { useDeviceType } from "@/hooks/use-mobile";
 import {
-  Brain, MessageSquare, Map, List, ChevronLeft, ChevronRight,
+  Brain, Map, List, ChevronLeft, ChevronRight,
   Loader2, WifiOff, Volume2, VolumeX
 } from "lucide-react";
 import { clsx } from "clsx";
 import type { Alert } from "@shared/schema";
-import { isMuted, toggleMute } from "@/lib/sounds";
+import { isMuted, toggleMute, soundIncoming } from "@/lib/sounds";
 import { useQueryClient } from "@tanstack/react-query";
 
 export default function Dashboard() {
@@ -27,7 +26,7 @@ export default function Dashboard() {
   return <DesktopDashboard />;
 }
 
-type RightTab = "feed" | "briefing" | "chat";
+type RightTab = "feed" | "briefing";
 
 function DesktopDashboard() {
   const { data: alerts } = useAlerts();
@@ -44,6 +43,18 @@ function DesktopDashboard() {
   const [rightTab,  setRightTab]  = useState<RightTab>("feed");
   const [muted,     setMuted]     = useState(isMuted());
 
+  // Play sound on new incoming alerts
+  const prevAlertIds = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    if (!alerts) return;
+    const newIds = new Set(alerts.map(a => a.id));
+    const hasNew = alerts.some(a => !prevAlertIds.current.has(a.id));
+    if (prevAlertIds.current.size > 0 && hasNew) {
+      soundIncoming();
+    }
+    prevAlertIds.current = newIds;
+  }, [alerts]);
+
   const handleCountryFocus = useCallback((code: string, lat?: number, lng?: number) => {
     setFocusCountry({ code, lat, lng });
   }, []);
@@ -59,10 +70,10 @@ function DesktopDashboard() {
   const highCount     = recentAlerts.filter(a => a.severity === "high").length;
   const countryCount  = new Set(recentAlerts.map(a => a.countryCode).filter(Boolean)).size;
 
-  // Determine if error overlay should show
-  const showErrorOverlay = serverStatus === "error";
+  // Show cinematic overlay whenever ANY service is offline
+  const showErrorOverlay = !health.groq || !health.db || serverStatus === "error";
   const errorDetails = {
-    server: !health.db && !health.groq,
+    server: serverStatus === "error",
     db:     !health.db,
     groq:   !health.groq,
   };
@@ -76,6 +87,11 @@ function DesktopDashboard() {
         }} />
       )}
       <CriticalAlertOverlay alerts={alerts ?? []} />
+
+      {/* Cinematic offline overlay — covers entire app */}
+      {showErrorOverlay && (
+        <ServerErrorOverlay errors={errorDetails} onRetry={handleRetry} />
+      )}
 
       <AppLayout>
         <div className="flex h-full min-h-0 overflow-hidden">
@@ -124,14 +140,6 @@ function DesktopDashboard() {
               showFeed={rightTab === "feed" && showRight}
             />
 
-            {/* Server error overlay — on top of globe */}
-            {showErrorOverlay && (
-              <ServerErrorOverlay
-                errors={errorDetails}
-                onRetry={handleRetry}
-              />
-            )}
-
             {/* Bottom toolbar */}
             <div className="absolute bottom-4 left-0 right-0 z-20 flex items-center justify-center gap-2 pointer-events-none">
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl pointer-events-auto"
@@ -159,12 +167,6 @@ function DesktopDashboard() {
                   onClick={() => { setRightTab("briefing"); setShowRight(p => rightTab === "briefing" ? !p : true); }}
                   icon={<Brain className="w-3.5 h-3.5" />}
                   label="Briefing"
-                />
-                <GlobeToolBtn
-                  active={rightTab === "chat" && showRight}
-                  onClick={() => { setRightTab("chat"); setShowRight(p => rightTab === "chat" ? !p : true); }}
-                  icon={<MessageSquare className="w-3.5 h-3.5" />}
-                  label="Analyst"
                 />
                 <ToolDivider />
                 <GlobeToolBtn
@@ -205,7 +207,7 @@ function DesktopDashboard() {
             </button>
           </div>
 
-          {/* ── RIGHT — Tabbed panel ─────────────────────────────────────── */}
+          {/* ── RIGHT — Tabbed panel (Alerts + Briefing only) ─────────────── */}
           <div className={clsx(
             "h-full transition-all duration-300 ease-in-out overflow-hidden shrink-0 flex flex-col",
             showRight ? "w-[340px]" : "w-0"
@@ -230,12 +232,6 @@ function DesktopDashboard() {
                     icon={<Brain className="w-3.5 h-3.5" />}
                     label="Briefing"
                   />
-                  <TabBtn
-                    active={rightTab === "chat"}
-                    onClick={() => setRightTab("chat")}
-                    icon={<MessageSquare className="w-3.5 h-3.5" />}
-                    label="Analyst"
-                  />
                 </div>
 
                 {/* Tab content */}
@@ -244,11 +240,6 @@ function DesktopDashboard() {
                   {rightTab === "briefing" && (
                     <div className="h-full overflow-y-auto scrollbar-thin">
                       <AiSummaryPanel headless />
-                    </div>
-                  )}
-                  {rightTab === "chat" && (
-                    <div className="h-full overflow-hidden">
-                      <AiChat />
                     </div>
                   )}
                 </div>

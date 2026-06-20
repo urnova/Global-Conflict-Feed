@@ -1,42 +1,75 @@
 /**
  * MobileDashboard — Argos V7
  * Full-screen tabs with bottom navigation bar.
- * Tabs: Globe · Flux · Tensions · Briefing · Chat
+ * Tabs: Globe · Alerts · Tensions · Briefing
  */
 
-import { useState } from "react";
-import { Globe2, List, Flame, Brain, MessageSquare, Activity, AlertTriangle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Globe2, List, Flame, Brain, Activity } from "lucide-react";
 import { useAlerts } from "@/hooks/use-alerts";
-import { useServerStatus } from "@/hooks/use-server-status";
+import { useServerStatus, useServerHealth } from "@/hooks/use-server-status";
 import { AlertFeed } from "@/components/alert-feed";
 import { CountryTensionPanel } from "@/components/country-tension-panel";
 import { AiSummaryPanel } from "@/components/ai-summary-panel";
-import { AiChat } from "@/components/ai-chat";
 import { GlobeView } from "@/components/globe-view";
 import { BreakingTicker } from "@/components/breaking-ticker";
 import { CriticalAlertOverlay } from "@/components/critical-alert-overlay";
+import { ServerErrorOverlay } from "@/components/server-error-overlay";
 import { clsx } from "clsx";
+import { soundIncoming } from "@/lib/sounds";
+import { useQueryClient } from "@tanstack/react-query";
 
-type Tab = "globe" | "flux" | "tensions" | "briefing" | "chat";
+type Tab = "globe" | "flux" | "tensions" | "briefing";
 
 const TABS: { id: Tab; icon: React.ElementType; label: string }[] = [
-  { id: "globe",    icon: Globe2,       label: "Globe"    },
-  { id: "flux",     icon: List,         label: "Alertes"  },
-  { id: "tensions", icon: Flame,        label: "Tensions" },
-  { id: "briefing", icon: Brain,        label: "Briefing" },
-  { id: "chat",     icon: MessageSquare,label: "IA"       },
+  { id: "globe",    icon: Globe2, label: "Globe"    },
+  { id: "flux",     icon: List,   label: "Alerts"   },
+  { id: "tensions", icon: Flame,  label: "Tensions" },
+  { id: "briefing", icon: Brain,  label: "Briefing" },
 ];
 
 export function MobileDashboard() {
   const { data: alerts = [] } = useAlerts();
   const serverStatus = useServerStatus();
+  const health = useServerHealth();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>("globe");
 
   const criticalCount = alerts.filter(a => a.severity === "critical").length;
 
+  // Play notification sound on new incoming alerts
+  const prevAlertIds = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    if (!alerts.length) return;
+    const newIds = new Set(alerts.map(a => a.id));
+    const hasNew = alerts.some(a => !prevAlertIds.current.has(a.id));
+    if (prevAlertIds.current.size > 0 && hasNew) {
+      soundIncoming();
+    }
+    prevAlertIds.current = newIds;
+  }, [alerts]);
+
+  const handleRetry = () => {
+    queryClient.invalidateQueries({ queryKey: ['/api/health'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/alerts'] });
+  };
+
+  // Show cinematic overlay whenever ANY service is offline
+  const showErrorOverlay = !health.groq || !health.db || serverStatus === "error";
+  const errorDetails = {
+    server: serverStatus === "error",
+    db:     !health.db,
+    groq:   !health.groq,
+  };
+
   return (
     <div className="flex flex-col h-screen bg-black overflow-hidden">
       <CriticalAlertOverlay alerts={alerts} />
+
+      {/* Cinematic offline overlay — covers entire app */}
+      {showErrorOverlay && (
+        <ServerErrorOverlay errors={errorDetails} onRetry={handleRetry} />
+      )}
 
       {/* Top status bar */}
       <div className="shrink-0 h-8 flex items-center justify-between px-3"
@@ -66,7 +99,10 @@ export function MobileDashboard() {
       <div className="flex-1 overflow-hidden relative">
 
         {/* GLOBE */}
-        <div className={clsx("absolute inset-0 transition-opacity duration-200", tab === "globe" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none")}>
+        <div className={clsx(
+          "absolute inset-0 transition-opacity duration-200",
+          tab === "globe" ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
+        )}>
           <GlobeView
             onToggleBriefing={() => setTab("briefing")}
             showBriefing={false}
@@ -77,7 +113,7 @@ export function MobileDashboard() {
           />
         </div>
 
-        {/* FLUX ALERTES */}
+        {/* ALERTS */}
         {tab === "flux" && (
           <div className="absolute inset-0 z-10 overflow-hidden">
             <AlertFeed mobile />
@@ -94,30 +130,18 @@ export function MobileDashboard() {
           </div>
         )}
 
-        {/* BRIEFING */}
+        {/* BRIEFING — headless to avoid double header */}
         {tab === "briefing" && (
           <div className="absolute inset-0 z-10 flex flex-col overflow-hidden">
             <div className="shrink-0 px-4 pt-4 pb-3 flex items-center gap-2"
               style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
               <Brain className="w-3.5 h-3.5 text-[#00F5FF]" />
-              <span className="text-[9px] font-black uppercase tracking-[0.15em] text-[#00F5FF]">Briefing Stratégique</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.15em] text-[#00F5FF]">
+                Strategic Briefing
+              </span>
             </div>
             <div className="flex-1 overflow-y-auto">
-              <AiSummaryPanel />
-            </div>
-          </div>
-        )}
-
-        {/* AI CHAT */}
-        {tab === "chat" && (
-          <div className="absolute inset-0 z-10 flex flex-col overflow-hidden">
-            <div className="shrink-0 px-4 pt-4 pb-3 flex items-center gap-2"
-              style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-              <MessageSquare className="w-3.5 h-3.5 text-violet-400" />
-              <span className="text-[9px] font-black uppercase tracking-[0.15em] text-violet-400">Analyste IA</span>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <AiChat />
+              <AiSummaryPanel headless />
             </div>
           </div>
         )}
@@ -137,8 +161,10 @@ export function MobileDashboard() {
                   style={{ background: "linear-gradient(90deg, transparent, #00F5FF, transparent)" }} />
               )}
               <Icon className={clsx("w-4 h-4 transition-all", active ? "text-[#00F5FF]" : "text-white/25")} />
-              <span className={clsx("text-[7px] font-bold uppercase tracking-wider transition-all",
-                active ? "text-[#00F5FF]" : "text-white/20")}>
+              <span className={clsx(
+                "text-[7px] font-bold uppercase tracking-wider transition-all",
+                active ? "text-[#00F5FF]" : "text-white/20"
+              )}>
                 {label}
               </span>
             </button>
