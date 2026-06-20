@@ -90,7 +90,7 @@ function DesktopDashboard() {
           setIsLoading(false);
         }} />
       )}
-      <CriticalAlertOverlay alerts={alerts ?? []} />
+      {!showErrorOverlay && <CriticalAlertOverlay alerts={alerts ?? []} />}
 
       <AppLayout>
         <div className="flex h-full min-h-0 overflow-hidden">
@@ -137,6 +137,7 @@ function DesktopDashboard() {
               showTensions={showLeft}
               onToggleFeed={() => { setRightTab("feed"); setShowRight(true); }}
               showFeed={rightTab === "feed" && showRight}
+              offline={showErrorOverlay}
             />
 
             {/* Cinematic error overlay — scoped to globe area only */}

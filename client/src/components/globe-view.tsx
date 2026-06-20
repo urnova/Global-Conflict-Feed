@@ -109,10 +109,10 @@ interface GlobeViewProps {
   showTensions?: boolean;
   onToggleFeed?: () => void;
   showFeed?: boolean;
-
+  offline?: boolean;
 }
 
-function GlobeViewInner({ focusCountryCode, focusLat, focusLng }: GlobeViewProps) {
+function GlobeViewInner({ focusCountryCode, focusLat, focusLng, offline }: GlobeViewProps) {
   const { t } = useLanguage();
 
   const globeEl = useRef<any>();
@@ -202,8 +202,10 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng }: GlobeViewProps
   // Track previous aiVerified states to detect null→true transitions
   const prevAlertsRef = useRef<Map<number, Alert>>(new Map());
 
-  // Sound + zoom + alarm — fires only on AI-verified alerts
+  // Sound + zoom + alarm — fires only on AI-verified alerts; silenced when offline
   useEffect(() => {
+    // Never fire sounds/zoom/alarm when system is offline
+    if (offline) return;
     // First load: seed refs, no animation
     if (lastAlertCount.current === 0 && alerts.length > 0) {
       lastAlertCount.current = alerts.length;
@@ -284,8 +286,9 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng }: GlobeViewProps
     } catch { /* not on globe */ }
   }, []);
 
-  // Globe data
+  // Globe data — empty when offline so no markers/rings/arcs are rendered
   const globeData = useMemo(() => {
+    if (offline) return { ringsData: [], arcsData: [], pointsData: [] };
     const now = Date.now();
 
     const isValidCoord = (v: unknown): boolean => {
@@ -491,10 +494,11 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng }: GlobeViewProps
           bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
           backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
 
-          polygonsData={countries.features}
+          polygonsData={offline ? [] : countries.features}
           polygonSideColor={() => 'rgba(0,240,255,0.03)'}
           polygonStrokeColor={() => 'rgba(0,240,255,0.12)'}
           polygonCapColor={d => {
+            if (offline) return 'transparent';
             if (d === hoverD) return 'rgba(0,240,255,0.22)';
             const iso2 = (d as any).properties?.ISO_A2;
             const tension = tensionMap[iso2];
