@@ -28,32 +28,28 @@ const SEVERITIES = [
     level: "critical", label: "CRITIQUE", color: "#FF003C",
     bg: "rgba(255,0,60,0.08)", border: "rgba(255,0,60,0.35)",
     desc: "Victimes confirmées, frappe majeure, arme CBRN, massacre ou coup d'État en cours.",
-    effects: ["Overlay rouge plein écran", "Alerte sonore critique", "Animation missile 3D", "Marqueur globe pulsant"],
   },
   {
     level: "high", label: "ÉLEVÉ", color: "#FFB800",
     bg: "rgba(255,184,0,0.08)", border: "rgba(255,184,0,0.35)",
     desc: "Conflit actif, frappe aérienne, lancement missile, attentat significatif.",
-    effects: ["Notification live", "Son d'alerte élevé", "Zoom globe automatique", "Anneau propagation orange"],
   },
   {
     level: "medium", label: "MOYEN", color: "#00F0FF",
     bg: "rgba(0,240,255,0.06)", border: "rgba(0,240,255,0.25)",
     desc: "Incident notable mais limité. Escarmouche, explosion isolée, tension diplomatique.",
-    effects: ["Entrée dans le flux", "Son discret", "Anneau propagation cyan"],
   },
   {
     level: "low", label: "FAIBLE", color: "#888888",
     bg: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.12)",
     desc: "Alerte préventive ou info contextuelle. Déclaration non confirmée, rumeur, exercice.",
-    effects: ["Flux uniquement", "Pas de son"],
   },
 ];
 
 const GLOBE_FEATURES = [
   { icon: <MapPin className="w-4 h-4" />, title: "Marqueurs pin drapeaux", desc: "Icône de type + drapeau pays. Cliquer → détail alerte + zoom globe automatique." },
   { icon: <Waves className="w-4 h-4" />, title: "Anneaux de propagation", desc: "Ondes concentriques colorées par sévérité. Flash 10 secondes à chaque nouvelle alerte." },
-  { icon: <Navigation2 className="w-4 h-4 rotate-45" />, title: "Animation missile", desc: "Arc 3D animé + point mobile de l'origine vers l'impact. Effet sonore en 3 phases." },
+  { icon: <Navigation2 className="w-4 h-4 rotate-45" />, title: "Animation missile", desc: "Arc 3D animé + point mobile de l'origine vers l'impact." },
   { icon: <Globe2 className="w-4 h-4" />, title: "Polygones pays", desc: "Teintés selon le statut de tension : rouge guerre, orange élevé, jaune tension, cyan watchlist." },
 ];
 
@@ -69,7 +65,7 @@ export default function Guide() {
             </div>
             <div>
               <div className="flex items-center gap-2.5 mb-1">
-                <h1 className="text-2xl font-black uppercase tracking-tight text-glow-primary">Guide Argos</h1>
+                <h1 className="text-2xl font-black uppercase tracking-tight text-glow-primary">Guide ARGOS</h1>
                 <span className="text-[9px] font-bold font-mono px-1.5 py-0.5 rounded border"
                   style={{ background: 'rgba(0,240,255,0.1)', color: '#00F0FF', borderColor: 'rgba(0,240,255,0.3)' }}>V7</span>
               </div>
@@ -86,10 +82,10 @@ export default function Guide() {
                 <strong className="text-foreground">EVA</strong> est l'intelligence artificielle d'Astral, intégrée au cœur d'ARGOS Intelligence. Elle analyse en temps quasi-réel chaque événement détecté : vérification de la pertinence, correction du type et de la sévérité, traduction et résumé factuel en français.
               </p>
               <p>
-                EVA génère également un <strong className="text-foreground">briefing stratégique horaire</strong> synthétisant les événements confirmés des dernières 24h, ainsi qu'une <strong className="text-foreground">classification des tensions par pays</strong> mise à jour toutes les heures et visible sur le globe.
+                EVA génère un <strong className="text-foreground">briefing stratégique horaire</strong> synthétisant les événements confirmés des dernières 24h, ainsi qu'une <strong className="text-foreground">classification des tensions par pays</strong> visible sur le globe.
               </p>
               <p>
-                Vous pouvez interagir directement avec EVA via le <strong className="text-foreground">panneau de chat</strong> disponible sur le globe. Posez vos questions sur la situation géopolitique actuelle, demandez un résumé par zone ou par pays, ou interrogez les données du flux en temps réel.
+                Vous pouvez interagir directement avec EVA via le <strong className="text-foreground">panneau de chat</strong> disponible sur le globe. Posez vos questions sur la situation géopolitique actuelle, demandez un résumé par zone ou par pays.
               </p>
               <div className="flex items-center gap-3 pt-2">
                 <div className="flex items-center gap-2 text-[10px] font-mono bg-primary/8 border border-primary/20 rounded-lg px-3 py-2">
@@ -149,29 +145,23 @@ export default function Guide() {
                     <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: s.color, boxShadow: `0 0 8px ${s.color}` }} />
                     <span className="font-black text-sm uppercase tracking-widest" style={{ color: s.color }}>{s.label}</span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mb-2.5 leading-relaxed">{s.desc}</p>
-                  <div className="flex flex-wrap gap-1">
-                    {s.effects.map(e => (
-                      <span key={e} className="text-[9px] font-mono px-2 py-0.5 rounded border border-white/10 bg-white/5 text-muted-foreground">{e}</span>
-                    ))}
-                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">{s.desc}</p>
                 </div>
               ))}
             </div>
           </section>
 
           <section className="pb-4">
-            <SectionTitle icon={<Filter className="w-4 h-4" />} title={`Types d'alertes (${ALERT_TYPES.length})`} />
+            <SectionTitle icon={<Filter className="w-4 h-4" />} title="Types d'alertes" />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {ALERT_TYPES.map(t => (
                 <div key={t.type} className="glass-panel rounded-xl border border-white/10 p-3.5 flex gap-3 items-start hover:border-white/20 transition-colors">
                   <span className="text-xl shrink-0 leading-none mt-0.5">{t.icon}</span>
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5">
+                    <div className="flex items-center gap-1.5 mb-1">
                       <span className="text-[11px] font-bold" style={{ color: t.color }}>{t.label}</span>
                     </div>
-                    <span className="text-[9px] font-mono bg-white/5 px-1.5 py-0.5 rounded text-muted-foreground/60 border border-white/8">{t.type}</span>
-                    <p className="text-[10px] text-muted-foreground/70 mt-1.5 leading-relaxed">{t.desc}</p>
+                    <p className="text-[10px] text-muted-foreground/70 leading-relaxed">{t.desc}</p>
                   </div>
                 </div>
               ))}

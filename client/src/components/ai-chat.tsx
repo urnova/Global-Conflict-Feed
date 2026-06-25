@@ -383,8 +383,8 @@ export function AiChat({ onClose, alerts = [], countryFilter, embedded = false }
       {!embedded && (
         <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-white/10 bg-black/80">
           <div className="flex items-center gap-2">
-            <img src="/argos.svg" alt="Argos" className="w-5 h-5 opacity-90" />
-            <span className="text-[11px] font-black tracking-[0.15em] uppercase text-primary">Argos IA</span>
+            <img src="/argos.svg" alt="EVA" className="w-5 h-5 opacity-90" />
+            <span className="text-[11px] font-black tracking-[0.15em] uppercase text-primary">EVA</span>
             {countryFilter && (
               <span className="text-[8px] font-bold uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary/70 border border-primary/20">
                 {countryFilter}
@@ -424,7 +424,7 @@ export function AiChat({ onClose, alerts = [], countryFilter, embedded = false }
                 <img src="/argos.svg" alt="" className="w-4 h-4 opacity-80" />
               </div>
               <div className="glass-card rounded-xl rounded-tl-sm px-3 py-2.5 text-[10px] font-mono text-white/70 leading-relaxed border border-primary/15">
-                Système <span className="text-primary font-bold">ARGOS</span> en ligne.<br />
+                <span className="text-primary font-bold">EVA</span> en ligne.<br />
                 Posez une question sur la situation géopolitique mondiale.
                 {!VITE_GROQ_KEY && (
                   <div className="mt-2 text-[9px] text-amber-400/60">

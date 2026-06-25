@@ -259,10 +259,6 @@ export default function AdminPage() {
             )}
           </div>
 
-          <div className="rounded-xl border border-white/5 bg-white/2 p-4 text-[9px] font-mono text-white/20 leading-relaxed">
-            <strong className="text-white/40 block mb-1">Comment ça fonctionne</strong>
-            Chaque alerte vérifiée par EVA est automatiquement envoyée à tous les webhooks actifs sous forme d'embed Discord coloré par sévérité. Les webhooks Discord fonctionnent sur Vercel (simple appel HTTP POST, pas de bot persistant requis).
-          </div>
 
         </div>
       </div>
