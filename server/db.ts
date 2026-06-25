@@ -92,6 +92,17 @@ export async function runMigrations() {
       )
     `);
 
+    // ── discord_webhooks table ────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS "discord_webhooks" (
+        "id"         SERIAL PRIMARY KEY,
+        "name"       TEXT NOT NULL,
+        "url"        TEXT NOT NULL UNIQUE,
+        "active"     BOOLEAN DEFAULT TRUE,
+        "created_at" TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
     console.log('[db] Migrations OK');
   } catch (err) {
     console.error('[db] Migration error:', err);

@@ -1,20 +1,52 @@
 import { Link, useLocation } from "wouter";
-import { Globe, History, BookOpen, Satellite } from "lucide-react";
+import { Globe, History, BookOpen, Satellite, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState, useEffect } from "react";
+
+function useImminentLaunch(): boolean {
+  const [imminent, setImminent] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function check() {
+      try {
+        const res = await fetch(
+          'https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=5&format=json',
+          { signal: AbortSignal.timeout(8000) }
+        );
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const next = data.results?.[0];
+        if (!next?.net) return;
+        const ms = new Date(next.net).getTime() - Date.now();
+        if (!cancelled) setImminent(ms > 0 && ms < 24 * 3600 * 1000);
+      } catch {
+        // Network error or timeout — ignore
+      }
+    }
+
+    check();
+    const t = setInterval(check, 60 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
+
+  return imminent;
+}
 
 export function Sidebar() {
   const [location] = useLocation();
+  const imminentLaunch = useImminentLaunch();
 
   const links = [
     { href: "/", label: "Live Radar", icon: Globe },
-    { href: "/live", label: "Espace", icon: Satellite },
+    { href: "/live", label: "Espace", icon: Satellite, badge: imminentLaunch },
     { href: "/history", label: "Alert History", icon: History },
     { href: "/guide", label: "Guide & Légende", icon: BookOpen },
   ];
 
   return (
     <div className="w-64 h-full glass-panel border-r border-y-0 border-l-0 flex flex-col z-50">
-      {/* Logo uniquement — le nom est déjà dans l'image SVG */}
       <div className="p-5 flex flex-col items-center gap-1 border-b border-white/5">
         <img
           src="/argos.svg"
@@ -38,11 +70,33 @@ export function Sidebar() {
                   : "text-muted-foreground hover:bg-white/5 hover:text-foreground border border-transparent"
               )}>
                 <Icon className={cn("w-5 h-5", isActive ? "text-primary" : "opacity-70")} />
-                {link.label}
+                <span className="flex-1">{link.label}</span>
+                {link.badge && (
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                      style={{ background: '#FFB800' }} />
+                    <span className="relative inline-flex rounded-full h-2 w-2"
+                      style={{ background: '#FFB800' }} />
+                  </span>
+                )}
               </div>
             </Link>
           );
         })}
+      </div>
+
+      <div className="px-4 pb-3">
+        <Link href="/admin" className="block">
+          <div className={cn(
+            "flex items-center gap-3 px-4 py-2.5 rounded-lg cursor-pointer transition-all duration-300 font-medium tracking-wide text-sm",
+            location === '/admin'
+              ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+              : "text-muted-foreground/40 hover:bg-white/3 hover:text-muted-foreground/70 border border-transparent"
+          )}>
+            <Lock className="w-4 h-4 opacity-70" />
+            <span className="text-[11px] tracking-widest uppercase font-bold">Admin</span>
+          </div>
+        </Link>
       </div>
 
       <div className="p-4 border-t border-white/5">

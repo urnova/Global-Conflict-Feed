@@ -534,5 +534,118 @@ export async function registerRoutes(
   });
 
 
+  // ── Admin auth ────────────────────────────────────────────────────────────
+  app.post('/api/admin/auth', async (req, res) => {
+    const { password } = req.body ?? {};
+    const adminPassword = process.env.ADMIN_PASSWORD || 'ASTRAL-ADM-8841';
+    if (password === adminPassword) {
+      res.json({ ok: true });
+    } else {
+      res.status(403).json({ error: 'Unauthorized' });
+    }
+  });
+
+  function requireAdmin(req: any, res: any, next: any) {
+    const key = req.headers['x-admin-key'] as string;
+    const adminPassword = process.env.ADMIN_PASSWORD || 'ASTRAL-ADM-8841';
+    if (key !== adminPassword) return res.status(403).json({ error: 'Unauthorized' });
+    next();
+  }
+
+  // ── Discord webhooks CRUD ─────────────────────────────────────────────────
+  app.get('/api/admin/webhooks', requireAdmin, async (_req, res) => {
+    try {
+      const result = await pool.query('SELECT * FROM discord_webhooks ORDER BY created_at DESC');
+      res.json(result.rows);
+    } catch (err) {
+      res.status(500).json({ error: 'DB error' });
+    }
+  });
+
+  app.post('/api/admin/webhooks', requireAdmin, async (req, res) => {
+    const { name, url } = req.body ?? {};
+    if (!name || !url) return res.status(400).json({ error: 'name and url required' });
+    if (!url.startsWith('https://discord.com/api/webhooks/')) {
+      return res.status(400).json({ error: 'Invalid Discord webhook URL' });
+    }
+    try {
+      const result = await pool.query(
+        'INSERT INTO discord_webhooks (name, url, active) VALUES ($1, $2, true) RETURNING *',
+        [name, url]
+      );
+      res.status(201).json(result.rows[0]);
+    } catch (err: any) {
+      if (err.code === '23505') return res.status(409).json({ error: 'URL already registered' });
+      res.status(500).json({ error: 'DB error' });
+    }
+  });
+
+  app.patch('/api/admin/webhooks/:id', requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    const { active } = req.body ?? {};
+    await pool.query('UPDATE discord_webhooks SET active = $1 WHERE id = $2', [active, id]);
+    res.json({ ok: true });
+  });
+
+  app.delete('/api/admin/webhooks/:id', requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    await pool.query('DELETE FROM discord_webhooks WHERE id = $1', [id]);
+    res.json({ ok: true });
+  });
+
   return httpServer;
+}
+
+// ── Discord webhook broadcast (called after alert AI-verification) ────────────
+export async function broadcastToDiscord(alert: {
+  title: string; country?: string | null; severity: string; type: string;
+  lat: string; lng: string; aiLabel?: string | null; timestamp?: Date | null;
+}) {
+  try {
+    const { pool: dbPool } = await import('./db');
+    const result = await dbPool.query(
+      'SELECT url FROM discord_webhooks WHERE active = true'
+    );
+    if (result.rows.length === 0) return;
+
+    const COLORS: Record<string, number> = {
+      critical: 0xFF003C,
+      high:     0xFFB800,
+      medium:   0x00F0FF,
+      low:      0x888888,
+    };
+    const EMOJIS: Record<string, string> = {
+      missile: '🚀', airstrike: '✈️', conflict: '⚔️', artillery: '💣',
+      explosion: '💥', terrorism: '🔴', coup: '⚖️', naval: '⚓',
+      cyber: '💻', nuclear: '☢️', massacre: '💀', chemical: '☣️',
+      sanctions: '🚫', protest: '📢', warning: '⚠️',
+    };
+    const emoji = EMOJIS[alert.type] ?? '🌐';
+    const label = alert.aiLabel ?? alert.title;
+
+    const embed = {
+      title: `${emoji} ${alert.severity.toUpperCase()} · ${alert.country ?? 'Global'}`,
+      description: label,
+      color: COLORS[alert.severity] ?? 0x888888,
+      fields: [
+        { name: 'Type',      value: alert.type,      inline: true },
+        { name: 'Sévérité', value: alert.severity,   inline: true },
+        { name: 'Position', value: `${alert.lat}, ${alert.lng}`, inline: true },
+      ],
+      footer: { text: 'ARGOS Intelligence · Astral Security' },
+      timestamp: alert.timestamp ? alert.timestamp.toISOString() : new Date().toISOString(),
+    };
+
+    await Promise.allSettled(
+      result.rows.map(({ url }: { url: string }) =>
+        fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ embeds: [embed] }),
+        })
+      )
+    );
+  } catch (err) {
+    console.error('[webhook] broadcast error:', err);
+  }
 }

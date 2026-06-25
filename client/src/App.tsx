@@ -11,6 +11,7 @@ import History from "@/pages/history";
 import Guide from "@/pages/guide";
 import LiveView from "@/pages/liveview";
 import RadioMilitary from "@/pages/radio";
+import AdminPage from "@/pages/admin";
 
 function Router() {
   return (
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/live" component={LiveView} />
       <Route path="/radio" component={RadioMilitary} />
       <Route path="/guide" component={Guide} />
+      <Route path="/admin" component={AdminPage} />
       <Route component={NotFound} />
     </Switch>
   );

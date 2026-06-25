@@ -45,7 +45,7 @@ const SOURCES = [
   { label: 'FIRMS',     color: '#FF7700', desc: 'NASA FIRMS — satellites VIIRS/SNPP. Anomalies thermiques intenses (> 100 MW) dans les zones de conflit = possible impact, explosion ou bombardement.' },
   { label: 'UCDP',      color: '#00FF88', desc: 'Uppsala Conflict Data Program GED 25.1 — événements géolocalisés avec estimation des victimes. Base académique mondiale, mise à jour toutes les 6h.' },
   { label: 'UA ALERTS', color: '#FF6B6B', desc: 'alerts.in.ua v3 — alertes raids aériens et artillerie ukrainiennes en temps réel. 27 oblasts, mise à jour toutes les 2 minutes.' },
-  { label: 'GROQ AI',   color: '#9B6DFF', desc: 'Classification IA (llama-3.1-8b) : vérifie la pertinence, corrige type/sévérité, génère label FR + résumé. Briefing stratégique horaire en DB.' },
+  { label: 'EVA',       color: '#9B6DFF', desc: "Intelligence artificielle d'Astral : vérifie la pertinence, corrige type/sévérité, génère label FR + résumé. Briefing stratégique horaire automatique." },
   { label: 'MANUEL',    color: '#AA88FF', desc: "Données saisies manuellement ou via l'API REST Argos (bot Discord, scripts externes)." },
 ];
 
