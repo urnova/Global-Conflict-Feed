@@ -1,4 +1,4 @@
-import express, { type Request, Response, NextFunction } from "express";
+import express, { type Request, type Response } from "express";
 import { createServer } from "http";
 import { registerRoutes } from "../server/routes";
 import { serveStatic } from "../server/static";
@@ -19,41 +19,49 @@ app.use(express.json({
     if (req.method === 'POST' && typeof req.url === 'string' && req.url.startsWith('/api')) return true;
     return false;
   },
-  verify: (req: any, _res: any, buf: Buffer) => { (req as any).rawBody = buf; },
+  verify: (_req: any, _res: any, buf: Buffer) => { (_req as any).rawBody = buf; },
 }));
 app.use(express.urlencoded({ extended: false }));
 
+// Diagnostic ping — always responds, no DB needed
+app.get('/api/ping', (_req: any, res: any) => {
+  res.json({ ok: true, ts: Date.now(), env: !!process.env.DATABASE_URL });
+});
+
 const httpServer = createServer(app);
 
-let initDone = false;
-let initError: unknown = null;
+// Single init promise — prevents race conditions and double-registration
+let initPromise: Promise<void> | null = null;
 
-async function ensureReady(): Promise<void> {
-  if (initDone) return;
-  try {
-    await registerRoutes(httpServer, app);
-    serveStatic(app);
-    app.use((err: any, _req: any, res: any, _next: any) => {
-      const status = err.status || err.statusCode || 500;
-      const message = err.message || "Internal Server Error";
-      if (res.headersSent) return;
-      res.status(status).json({ message });
-    });
-  } catch (err) {
-    initError = err;
-    console.error('[api] Init error (routes may be degraded):', err);
+function ensureReady(): Promise<void> {
+  if (!initPromise) {
+    initPromise = (async () => {
+      try {
+        await registerRoutes(httpServer, app);
+        serveStatic(app);
+        // Global error handler must be added LAST
+        app.use((err: any, _req: any, res: any, _next: any) => {
+          const status = err.status || err.statusCode || 500;
+          const message = err.message || "Internal Server Error";
+          if (res.headersSent) return;
+          res.status(status).json({ message });
+        });
+        console.log('[api] Routes registered OK');
+      } catch (err) {
+        // Log but don't reject — allow degraded operation
+        console.error('[api] Init error:', err);
+      }
+    })();
   }
-  initDone = true;
+  return initPromise;
 }
 
-// Warm up immediately (don't wait for first request)
-ensureReady().catch(() => {});
-
 export default async function handler(req: Request, res: Response) {
-  await ensureReady();
-  if (initError && !initDone) {
-    (res as any).status(503).json({ message: 'Service initializing, please retry' });
+  // Fast path for ping — before init completes
+  if ((req as any).url === '/api/ping' || (req as any).path === '/api/ping') {
+    (res as any).json({ ok: true, ts: Date.now() });
     return;
   }
+  await ensureReady();
   (app as any)(req, res);
 }
