@@ -25,24 +25,35 @@ app.use(express.urlencoded({ extended: false }));
 
 const httpServer = createServer(app);
 
-let ready: Promise<void> | null = null;
+let initDone = false;
+let initError: unknown = null;
 
-function ensureReady(): Promise<void> {
-  if (!ready) {
-    ready = registerRoutes(httpServer, app).then(() => {
-      serveStatic(app);
-      app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
-        const status = err.status || err.statusCode || 500;
-        const message = err.message || "Internal Server Error";
-        if (res.headersSent) return next(err);
-        res.status(status).json({ message });
-      });
+async function ensureReady(): Promise<void> {
+  if (initDone) return;
+  try {
+    await registerRoutes(httpServer, app);
+    serveStatic(app);
+    app.use((err: any, _req: any, res: any, _next: any) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      if (res.headersSent) return;
+      res.status(status).json({ message });
     });
+  } catch (err) {
+    initError = err;
+    console.error('[api] Init error (routes may be degraded):', err);
   }
-  return ready;
+  initDone = true;
 }
+
+// Warm up immediately (don't wait for first request)
+ensureReady().catch(() => {});
 
 export default async function handler(req: Request, res: Response) {
   await ensureReady();
-  app(req, res);
+  if (initError && !initDone) {
+    (res as any).status(503).json({ message: 'Service initializing, please retry' });
+    return;
+  }
+  (app as any)(req, res);
 }

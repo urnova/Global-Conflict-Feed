@@ -23,7 +23,7 @@ export async function registerRoutes(
 
   // ── Purge all GDELT alerts (source désactivée — trop de doublons) ──────────
   pool.query(`DELETE FROM alerts WHERE source_type = 'GDELT'`)
-    .then((r: { rowCount: number }) => { if (r.rowCount) console.log(`[db] Purged ${r.rowCount} GDELT alerts`); })
+    .then((r: { rowCount: number | null }) => { if (r.rowCount) console.log(`[db] Purged ${r.rowCount} GDELT alerts`); })
     .catch(() => {});
 
   // ── Auto-cleanup: delete alerts older than 72h ─────────────────────────────

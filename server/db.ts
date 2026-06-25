@@ -26,7 +26,13 @@ export const db = drizzle(pool, { schema });
  * Uses IF NOT EXISTS / IF NOT EXISTS so it's idempotent.
  */
 export async function runMigrations() {
-  const client = await pool.connect();
+  let client: pg.PoolClient | undefined;
+  try {
+    client = await pool.connect();
+  } catch (connErr) {
+    console.error('[db] Cannot connect to database — migrations skipped:', connErr);
+    return;
+  }
   try {
     // ── alerts table ────────────────────────────────────────────────────────
     await client.query(`
@@ -107,6 +113,6 @@ export async function runMigrations() {
   } catch (err) {
     console.error('[db] Migration error:', err);
   } finally {
-    client.release();
+    client?.release();
   }
 }
