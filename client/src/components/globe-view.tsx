@@ -130,8 +130,10 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng, offline }: Globe
   const [alarmSeverity, setAlarmSeverity] = useState<string | null>(null);
   const [alarmType, setAlarmType] = useState<string>('warning');
   const alarmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-
+  const [flashRings, setFlashRings] = useState<any[]>([]);
+  const flashRingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoReturnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastUserInteractionRef = useRef<number>(0);
 
   const { data: alerts = [] } = useAlerts();
   const { data: tensions = [] } = useCountryTension();
@@ -177,7 +179,18 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng, offline }: Globe
         globeEl.current.pointOfView({ lat, lng, altitude: 0.8 }, 1200);
       }
       const alert = alerts.find(a => a.id === alertId);
-      if (alert) setSelectedAlert(alert);
+      if (alert) {
+        setSelectedAlert(alert);
+        const c = severityColor(alert.severity);
+        const rr = parseInt(c.slice(1, 3), 16), rg = parseInt(c.slice(3, 5), 16), rb = parseInt(c.slice(5, 7), 16);
+        setFlashRings([{
+          lat: Number(alert.lat), lng: Number(alert.lng),
+          maxR: 10, propagationSpeed: 3, repeatPeriod: 700,
+          color: (t: number) => `rgba(${rr},${rg},${rb},${Math.max(0, 1 - t * 1.2)})`,
+        }]);
+        if (flashRingTimerRef.current) clearTimeout(flashRingTimerRef.current);
+        flashRingTimerRef.current = setTimeout(() => setFlashRings([]), 8000);
+      }
     };
     window.addEventListener('focus-alert', handler);
     return () => window.removeEventListener('focus-alert', handler);
@@ -250,8 +263,29 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng, offline }: Globe
 
       // ── Zoom to newest confirmed alert ────────────────────────────────────
       if (globeEl.current) {
+        globeEl.current.controls().autoRotate = false;
         globeEl.current.pointOfView({ lat: Number(newest.lat), lng: Number(newest.lng), altitude: 0.8 }, 1200);
       }
+
+      // ── Flash ring on globe for 10s then auto-return to default view ───────
+      const c = severityColor(newest.severity);
+      const rr = parseInt(c.slice(1, 3), 16), rg = parseInt(c.slice(3, 5), 16), rb = parseInt(c.slice(5, 7), 16);
+      setFlashRings([{
+        lat: Number(newest.lat), lng: Number(newest.lng),
+        maxR: newest.severity === 'critical' ? 14 : 8,
+        propagationSpeed: newest.severity === 'critical' ? 5 : 3,
+        repeatPeriod: newest.severity === 'critical' ? 500 : 850,
+        color: (t: number) => `rgba(${rr},${rg},${rb},${Math.max(0, 1 - t * 1.2)})`,
+      }]);
+      if (flashRingTimerRef.current) clearTimeout(flashRingTimerRef.current);
+      if (autoReturnTimerRef.current) clearTimeout(autoReturnTimerRef.current);
+      flashRingTimerRef.current = setTimeout(() => setFlashRings([]), 10000);
+      autoReturnTimerRef.current = setTimeout(() => {
+        if (Date.now() - lastUserInteractionRef.current > 5000 && globeEl.current) {
+          globeEl.current.controls().autoRotate = true;
+          globeEl.current.pointOfView({ altitude: 2.2 }, 1800);
+        }
+      }, 10500);
     }
 
     lastAlertCount.current = alerts.length;
@@ -327,22 +361,8 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng, offline }: Globe
       .sort((a, b) => (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9))
       .slice(0, 30);
 
-    // ── Rings — impact zones with severity-based pulse ──────────────────────
-    const ringsData = recentAlerts.map((a: typeof alerts[0]) => {
-      const isMissile = a.type === 'missile' || a.type === 'airstrike';
-      const isCritical = a.severity === 'critical';
-      return {
-        lat: Number(a.lat), lng: Number(a.lng),
-        maxR: isCritical ? 12 : 7,
-        propagationSpeed: isCritical ? (isMissile ? 5 : 3.5) : 2,
-        repeatPeriod: isCritical ? (isMissile ? 600 : 800) : 1300,
-        color: (t: number) => {
-          const c = severityColor(a.severity);
-          const r = parseInt(c.slice(1, 3), 16), g = parseInt(c.slice(3, 5), 16), b = parseInt(c.slice(5, 7), 16);
-          return `rgba(${r},${g},${b},${Math.max(0, 1 - t * 1.3)})`;
-        },
-      };
-    });
+    // ── Rings — shown only via flashRings state on new alert arrival ─────────
+    const ringsData: never[] = [];
 
     // ── Arcs — missile/airstrike trajectories (origin → target) ────────────
     // Altitude proportionnelle à la distance (Haversine) : tir local = arc bas, tir intercontinental = arc haut
@@ -429,7 +449,9 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng, offline }: Globe
   };
 
   return (
-    <div ref={containerRef} className="absolute inset-0 bg-black cursor-move overflow-hidden" onMouseMove={handleMouseMove}>
+    <div ref={containerRef} className="absolute inset-0 bg-black cursor-move overflow-hidden" onMouseMove={handleMouseMove}
+      onMouseDown={() => { lastUserInteractionRef.current = Date.now(); if (globeEl.current) globeEl.current.controls().autoRotate = false; }}
+      onTouchStart={() => { lastUserInteractionRef.current = Date.now(); }}>
       <div className="pointer-events-none absolute inset-0 scanline-effect z-10" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,0,0,0.85)_100%)] z-10" />
       {/* Keyframes */}
@@ -519,7 +541,7 @@ function GlobeViewInner({ focusCountryCode, focusLat, focusLng, offline }: Globe
               : `<div class="globe-tooltip">${name}${tensionLine}</div>`;
           }}
 
-          ringsData={globeData.ringsData}
+          ringsData={flashRings}
           ringColor="color" ringMaxRadius="maxR" ringAltitude={0.02}
           ringPropagationSpeed="propagationSpeed" ringRepeatPeriod="repeatPeriod"
 

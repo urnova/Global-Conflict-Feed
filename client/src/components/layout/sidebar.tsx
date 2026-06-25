@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Globe, History, BookOpen } from "lucide-react";
+import { Globe, History, BookOpen, Satellite } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Sidebar() {
@@ -7,6 +7,7 @@ export function Sidebar() {
 
   const links = [
     { href: "/", label: "Live Radar", icon: Globe },
+    { href: "/live", label: "Espace", icon: Satellite },
     { href: "/history", label: "Alert History", icon: History },
     { href: "/guide", label: "Guide & Légende", icon: BookOpen },
   ];

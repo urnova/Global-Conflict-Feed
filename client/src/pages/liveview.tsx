@@ -814,6 +814,54 @@ function OrbitalStats({ sat, accentColor }: { sat: ISSData; accentColor: string 
   );
 }
 
+// ── Mini World Map Tracker ─────────────────────────────────────────────────────
+
+function MiniMap({ lat, lng, accentColor, label }: { lat: number; lng: number; accentColor: string; label: string }) {
+  const xPct = ((lng + 180) / 360 * 100).toFixed(2);
+  const yPct = ((90 - lat) / 180 * 100).toFixed(2);
+
+  return (
+    <div className="rounded-xl border overflow-hidden" style={{ borderColor: `${accentColor}25`, background: '#010b18' }}>
+      <div className="flex items-center justify-between px-3 py-1.5 border-b" style={{ borderColor: `${accentColor}15` }}>
+        <span className="text-[8px] font-black uppercase tracking-widest" style={{ color: `${accentColor}70` }}>Tracker Orbital · Temps Réel</span>
+        <span className="text-[8px] font-mono" style={{ color: `${accentColor}50` }}>
+          {lat >= 0 ? 'N' : 'S'}{Math.abs(lat).toFixed(2)}° {lng >= 0 ? 'E' : 'O'}{Math.abs(lng).toFixed(2)}°
+        </span>
+      </div>
+      <div className="relative w-full overflow-hidden" style={{ paddingBottom: '42%' }}>
+        <div className="absolute inset-0">
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Equirectangular_projection_SW.jpg/1280px-Equirectangular_projection_SW.jpg"
+            alt="World map"
+            className="w-full h-full object-cover"
+            style={{ opacity: 0.22, filter: 'saturate(0.2) brightness(0.7)' }}
+          />
+          <svg className="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg" style={{ opacity: 0.18 }}>
+            {[-60, -30, 0, 30, 60].map(latLine => (
+              <line key={latLine}
+                x1="0%" y1={`${((90 - latLine) / 180 * 100).toFixed(1)}%`}
+                x2="100%" y2={`${((90 - latLine) / 180 * 100).toFixed(1)}%`}
+                stroke={accentColor} strokeWidth="0.5" strokeDasharray={latLine === 0 ? '4,3' : '2,5'} />
+            ))}
+            {[-120, -60, 0, 60, 120].map(lngLine => (
+              <line key={lngLine}
+                x1={`${((lngLine + 180) / 360 * 100).toFixed(1)}%`} y1="0%"
+                x2={`${((lngLine + 180) / 360 * 100).toFixed(1)}%`} y2="100%"
+                stroke={accentColor} strokeWidth="0.5" strokeDasharray={lngLine === 0 ? '4,3' : '2,5'} />
+            ))}
+          </svg>
+          <div className="absolute" style={{ left: `${xPct}%`, top: `${yPct}%`, zIndex: 10 }}>
+            <div className="absolute rounded-full animate-ping" style={{ width: 20, height: 20, left: -10, top: -10, border: `1px solid ${accentColor}`, opacity: 0.6, animationDuration: '1.5s' }} />
+            <div className="absolute rounded-full animate-ping" style={{ width: 32, height: 32, left: -16, top: -16, border: `1px solid ${accentColor}`, opacity: 0.25, animationDuration: '2.2s', animationDelay: '0.5s' }} />
+            <div className="rounded-full" style={{ width: 8, height: 8, marginLeft: -4, marginTop: -4, background: accentColor, boxShadow: `0 0 10px ${accentColor}, 0 0 20px ${accentColor}55` }} />
+          </div>
+          <div className="absolute bottom-1.5 left-2 text-[7px] font-mono font-bold" style={{ color: accentColor }}>{label}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── ISS Detail ────────────────────────────────────────────────────────────────
 
 function ISSDetail({ onBack }: { onBack?: () => void }) {
@@ -848,6 +896,7 @@ function ISSDetail({ onBack }: { onBack?: () => void }) {
 
   const currentImg = images[imgIdx];
   const ACCENT = '#00F0FF';
+  const [showLive, setShowLive] = useState(false);
 
   return (
     <div className="flex flex-col gap-4 h-full">
@@ -938,18 +987,28 @@ function ISSDetail({ onBack }: { onBack?: () => void }) {
                 )}
               </div>
               <div className="flex flex-col gap-1.5 pointer-events-auto">
-                <a
-                  href="https://www.youtube.com/watch?v=P57pHPzj4qU"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => setShowLive(p => !p)}
                   className="flex items-center gap-1.5 backdrop-blur-md px-3 py-2 rounded-xl text-[9px] font-bold font-mono transition-all hover:opacity-90"
                   style={{ background: `${ACCENT}20`, border: `1px solid ${ACCENT}40`, color: ACCENT }}
                 >
-                  <ExternalLink className="w-3 h-3" />
-                  REGARDER NASA TV ↗
-                </a>
+                  <Video className="w-3 h-3" />
+                  {showLive ? 'IMAGES TERRE' : 'NASA TV LIVE'}
+                </button>
               </div>
             </div>
+
+            {/* NASA TV Live embed overlay */}
+            {showLive && (
+              <div className="absolute inset-0 z-10">
+                <iframe
+                  src="https://www.youtube.com/embed/P57pHPzj4qU?autoplay=1&mute=1"
+                  className="w-full h-full"
+                  allow="autoplay; fullscreen"
+                  title="NASA ISS Live"
+                />
+              </div>
+            )}
           </div>
 
           {/* Orbital telemetry */}
@@ -961,6 +1020,9 @@ function ISSDetail({ onBack }: { onBack?: () => void }) {
               Connexion ISS en cours…
             </div>
           )}
+
+          {/* Mini world map tracker */}
+          {iss && <MiniMap lat={iss.lat} lng={iss.lng} accentColor={ACCENT} label="ISS · NORAD 25544" />}
 
           {/* Crew + orbit info strip */}
           <div className="grid grid-cols-3 gap-3">
@@ -1049,12 +1111,36 @@ function ISSDetail({ onBack }: { onBack?: () => void }) {
 function TiangongDetail({ onBack }: { onBack?: () => void }) {
   const { data: alerts } = useAlerts();
   const sat = useTiangongTracker();
-  const ACCENT = '#FF4500';
+  const { images, loading: epicLoading } = useEpicImages();
+  const [imgIdx, setImgIdx] = useState(0);
+  const [showLive, setShowLive] = useState(false);
+
+  useEffect(() => {
+    if (images.length < 2) return;
+    const t = setInterval(() => setImgIdx(i => (i + 1) % images.length), 8000);
+    return () => clearInterval(t);
+  }, [images.length]);
+
+  const ACCENT = '#DE2910';
+
+  const conflictCities = COUNTRIES
+    .filter(c => c.isConflict)
+    .flatMap(c => c.cities.map(city => ({ ...city, countryCode: c.countryCode, countryName: c.name })));
+
+  const nearConflicts = sat
+    ? conflictCities
+      .filter(c => c.tension === 'critical' || c.tension === 'high')
+      .map(c => ({ ...c, dist: distanceKm(sat.lat, sat.lng, c.lat, c.lng) }))
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 5)
+    : [];
 
   const critAlerts = (alerts ?? []).filter(a =>
     (a.severity === 'critical' || a.severity === 'high') &&
     a.timestamp && Date.now() - new Date(a.timestamp).getTime() < 12 * 3600 * 1000
   ).slice(0, 6);
+
+  const currentImg = images[imgIdx];
 
   return (
     <div className="flex flex-col gap-4 h-full">
@@ -1076,79 +1162,115 @@ function TiangongDetail({ onBack }: { onBack?: () => void }) {
 
       {/* Main layout */}
       <div className="flex gap-4 flex-col lg:flex-row flex-1 min-h-0">
-
         <div className="flex-1 min-w-0 flex flex-col gap-3">
 
-          {/* Hero panel */}
-          <div className="relative w-full rounded-2xl overflow-hidden border flex flex-col items-center justify-center py-14 px-6"
-            style={{
-              borderColor: `${ACCENT}30`,
-              background: `radial-gradient(ellipse at 40% 40%, ${ACCENT}12 0%, rgba(0,0,0,0.95) 70%)`,
-              minHeight: '240px',
-            }}>
-            {/* Animated rings */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-64 h-64 rounded-full border animate-ping"
-                style={{ borderColor: `${ACCENT}10`, animationDuration: '3s' }} />
-              <div className="absolute w-48 h-48 rounded-full border"
-                style={{ borderColor: `${ACCENT}15`, animation: 'spin-slow 20s linear infinite' }} />
-              <div className="absolute w-80 h-80 rounded-full border"
-                style={{ borderColor: `${ACCENT}08`, animation: 'spin-slow 35s linear infinite reverse' }} />
-            </div>
+          {/* Hero — Earth imagery with red tint / CGTN live toggle */}
+          <div className="relative w-full rounded-2xl overflow-hidden border"
+            style={{ paddingBottom: '56.25%', borderColor: `${ACCENT}25`, background: 'rgba(0,0,0,0.8)' }}>
 
-            {/* Station icon */}
-            <div className="relative z-10 flex flex-col items-center gap-4 text-center">
-              <div className="flex items-center gap-3">
-                <Satellite className="w-10 h-10" style={{ color: ACCENT, animation: 'spin-slow 10s linear infinite' }} />
-              </div>
-              <div>
-                <div className="text-2xl font-black text-white mb-1">天宫 Tiangong</div>
-                <div className="text-[11px] font-mono text-white/40">Station Spatiale Chinoise (CSS) · NORAD 48274</div>
-              </div>
+            {currentImg && !showLive && (
+              <img
+                key={currentImg.image}
+                src={epicUrl(currentImg)}
+                alt="Terre depuis l'espace"
+                className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
+                style={{ filter: 'hue-rotate(330deg) saturate(1.1)' }}
+              />
+            )}
 
-              {sat ? (
-                <div className="flex items-center gap-2 text-[10px] font-mono" style={{ color: ACCENT }}>
-                  <span className="w-2 h-2 rounded-full animate-ping" style={{ background: ACCENT }} />
-                  Survol : {sat.lat >= 0 ? 'N' : 'S'}{Math.abs(sat.lat).toFixed(1)}° {sat.lng >= 0 ? 'E' : 'O'}{Math.abs(sat.lng).toFixed(1)}° · {Math.round(sat.altitude)} km
+            {(epicLoading || images.length === 0) && !showLive && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3"
+                style={{ background: `radial-gradient(ellipse at center, ${ACCENT}15 0%, #000 100%)` }}>
+                <div className="w-16 h-16 rounded-full border-2 animate-pulse"
+                  style={{ borderColor: `${ACCENT}30`, background: `radial-gradient(ellipse, ${ACCENT}10 0%, #000820 100%)` }} />
+                <span className="text-[9px] font-mono text-white/30 animate-pulse">Chargement…</span>
+              </div>
+            )}
+
+            {/* CGTN live embed */}
+            {showLive && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-5"
+                style={{ background: `radial-gradient(ellipse at center, ${ACCENT}10 0%, #000 100%)` }}>
+                <Satellite className="w-10 h-10" style={{ color: ACCENT, animation: 'spin-slow 8s linear infinite' }} />
+                <div className="text-center px-6">
+                  <div className="text-sm font-bold text-white mb-1">天宫 · Diffusion Directe</div>
+                  <div className="text-[10px] font-mono text-white/30 mb-5">Les diffusions en direct CGTN Space sont disponibles sur YouTube lors des opérations de la CSS.</div>
+                  <a href="https://www.youtube.com/@cgtn/streams" target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-bold font-mono transition-all hover:opacity-90"
+                    style={{ background: `${ACCENT}20`, border: `1px solid ${ACCENT}45`, color: ACCENT }}>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    CGTN SPACE LIVE ↗
+                  </a>
                 </div>
-              ) : (
-                <div className="text-[9px] font-mono text-white/30 animate-pulse">Connexion Tiangong en cours…</div>
-              )}
-
-              <div className="flex gap-2 mt-2">
-                <a href="https://heavens-above.com/satinfo.aspx?satid=48274"
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-bold font-mono transition-all hover:opacity-90"
-                  style={{ background: `${ACCENT}20`, border: `1px solid ${ACCENT}45`, color: ACCENT }}>
-                  <ExternalLink className="w-3 h-3" />
-                  SUIVRE SUR HEAVENS-ABOVE ↗
-                </a>
-                <a href="https://www.n2yo.com/satellite/?s=48274"
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-bold font-mono transition-all hover:opacity-90"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.5)' }}>
-                  <ExternalLink className="w-3 h-3" />
-                  N2YO TRACKER ↗
-                </a>
               </div>
+            )}
+
+            {/* Gradient overlay */}
+            {!showLive && (
+              <div className="absolute inset-0 pointer-events-none"
+                style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,0.7) 100%)' }} />
+            )}
+
+            {/* LIVE badge */}
+            <div className="absolute top-3 left-3 flex items-center gap-1.5 backdrop-blur-sm px-2 py-1 rounded-lg pointer-events-none z-20"
+              style={{ background: `${ACCENT}CC` }}>
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              <span className="text-[8px] font-bold text-white uppercase tracking-wider">LIVE</span>
             </div>
+
+            {/* Toggle button */}
+            <div className="absolute top-3 right-3 pointer-events-auto z-20">
+              <button
+                onClick={() => setShowLive(p => !p)}
+                className="flex items-center gap-1.5 backdrop-blur-md px-3 py-2 rounded-xl text-[9px] font-bold font-mono transition-all hover:opacity-90"
+                style={{ background: `${ACCENT}20`, border: `1px solid ${ACCENT}40`, color: ACCENT }}
+              >
+                <Video className="w-3 h-3" />
+                {showLive ? 'IMAGES TERRE' : 'CGTN DIRECT'}
+              </button>
+            </div>
+
+            {/* Bottom info bar */}
+            {!showLive && (
+              <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between pointer-events-none z-20">
+                <div className="bg-black/70 backdrop-blur-md px-3 py-2 rounded-xl">
+                  <div className="text-[10px] font-bold text-white mb-0.5">天宫 · Vue Orbitale · CNSA</div>
+                  {sat ? (
+                    <div className="text-[8px] font-mono" style={{ color: `${ACCENT}99` }}>
+                      CSS {sat.lat >= 0 ? 'N' : 'S'}{Math.abs(sat.lat).toFixed(1)}° {sat.lng >= 0 ? 'E' : 'O'}{Math.abs(sat.lng).toFixed(1)}° · {Math.round(sat.altitude)} km
+                    </div>
+                  ) : (
+                    <div className="text-[8px] font-mono text-white/30 animate-pulse">Localisation Tiangong…</div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Telemetry */}
-          {sat && <OrbitalStats sat={sat} accentColor={ACCENT} />}
+          {/* Orbital telemetry */}
+          {sat ? (
+            <OrbitalStats sat={sat} accentColor={ACCENT} />
+          ) : (
+            <div className="flex items-center justify-center py-6 gap-2 text-[10px] font-mono text-white/25">
+              <Satellite className="w-4 h-4 animate-pulse" />
+              Connexion Tiangong en cours…
+            </div>
+          )}
 
-          {/* Station modules info */}
+          {/* Mini world map tracker */}
+          {sat && <MiniMap lat={sat.lat} lng={sat.lng} accentColor={ACCENT} label="TIANGONG CSS · NORAD 48274" />}
+
+          {/* Crew + orbit info strip */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              { name: 'Tianhe', icon: '🛸', desc: 'Module central de vie', year: '2021' },
-              { name: 'Wentian', icon: '🔬', desc: 'Laboratoire scientifique', year: '2022' },
-              { name: 'Mengtian', icon: '⚗️', desc: 'Module expérimental', year: '2022' },
-            ].map(m => (
-              <div key={m.name} className="rounded-xl border border-white/8 bg-black/60 p-3 text-center">
-                <div className="text-lg mb-1">{m.icon}</div>
-                <div className="text-[11px] font-bold text-white">{m.name}</div>
-                <div className="text-[8px] font-mono text-white/30 mt-0.5 leading-snug">{m.desc}</div>
-                <div className="text-[7px] font-mono mt-1" style={{ color: `${ACCENT}70` }}>Lancé {m.year}</div>
+              { label: 'Équipage', value: '3 taikonautes', sub: 'à bord actuellement' },
+              { label: 'Période orbitale', value: '~91 min', sub: 'tour de la Terre' },
+              { label: 'Visibilité', value: sat?.visibility === 'daylight' ? 'Jour' : sat?.visibility === 'eclipsed' ? 'Ombre' : '—', sub: 'côté illuminé' },
+            ].map(({ label, value, sub }) => (
+              <div key={label} className="rounded-xl border bg-black/60 p-3 text-center" style={{ borderColor: `${ACCENT}15` }}>
+                <div className="text-[7px] font-bold uppercase tracking-widest mb-1" style={{ color: `${ACCENT}60` }}>{label}</div>
+                <div className="text-sm font-black font-mono text-white/80">{value}</div>
+                <div className="text-[7px] font-mono text-white/20 mt-0.5">{sub}</div>
               </div>
             ))}
           </div>
@@ -1159,29 +1281,69 @@ function TiangongDetail({ onBack }: { onBack?: () => void }) {
 
           {/* Station facts */}
           <div className="rounded-2xl border border-white/8 bg-black/60 p-3.5 space-y-2.5">
-            <div className="text-[8px] font-bold uppercase tracking-widest text-white/25 mb-2">Caractéristiques</div>
+            <div className="text-[8px] font-bold uppercase tracking-widest mb-2" style={{ color: `${ACCENT}60` }}>Caractéristiques</div>
             {[
+              { label: 'Modules', value: 'Tianhe · Wentian · Mengtian' },
               { label: 'Équipage', value: '3 taikonautes' },
               { label: 'Orbite', value: '340 – 450 km' },
-              { label: 'Période', value: '~91 min / orbite' },
               { label: 'Inclinaison', value: '41.5°' },
               { label: 'Opérateur', value: 'CNSA / CMS' },
+              { label: 'NORAD ID', value: '48274' },
             ].map(({ label, value }) => (
-              <div key={label} className="flex items-center justify-between text-[9px] font-mono">
-                <span className="text-white/30">{label}</span>
-                <span className="text-white/70 font-bold">{value}</span>
+              <div key={label} className="flex items-start justify-between text-[9px] font-mono gap-2">
+                <span className="text-white/30 shrink-0">{label}</span>
+                <span className="text-white/70 font-bold text-right">{value}</span>
               </div>
             ))}
           </div>
+
+          {/* Modules */}
+          <div className="rounded-2xl border border-white/8 bg-black/60 p-3.5 space-y-2.5">
+            <div className="text-[8px] font-bold uppercase tracking-widest mb-2" style={{ color: `${ACCENT}60` }}>Modules</div>
+            {[
+              { name: 'Tianhe', icon: '🛸', desc: 'Module central de vie', year: '2021' },
+              { name: 'Wentian', icon: '🔬', desc: 'Laboratoire scientifique', year: '2022' },
+              { name: 'Mengtian', icon: '⚗️', desc: 'Module expérimental', year: '2022' },
+            ].map(m => (
+              <div key={m.name} className="flex items-center gap-2 text-[9px] font-mono">
+                <span className="text-base">{m.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-white/80">{m.name}</div>
+                  <div className="text-white/30 text-[8px]">{m.desc} · {m.year}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Nearby conflict zones */}
+          {nearConflicts.length > 0 && (
+            <div className="rounded-2xl border border-white/8 bg-black/60 p-3.5">
+              <div className="flex items-center gap-1.5 mb-2.5">
+                <MapPin className="w-3 h-3 text-destructive/50" />
+                <span className="text-[8px] font-bold uppercase tracking-widest text-destructive/50">Zones proches</span>
+              </div>
+              <div className="space-y-2">
+                {nearConflicts.map(c => (
+                  <div key={c.id} className="flex items-center justify-between text-[9px] font-mono">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <img src={`https://flagcdn.com/16x12/${c.countryCode.toLowerCase()}.png`} alt="" className="w-4 h-3 rounded-sm shrink-0" />
+                      <span className="text-white/50 truncate">{c.name}</span>
+                    </div>
+                    <span className="font-bold shrink-0 ml-1" style={{ color: `${ACCENT}80` }}>{c.dist.toLocaleString('fr-FR')} km</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Critical alerts */}
           <div className="rounded-2xl border border-white/8 bg-black/60 p-3.5 flex-1 overflow-y-auto">
             <div className="flex items-center gap-1.5 mb-2.5">
               <Zap className="w-3 h-3 text-amber-400/50" />
-              <span className="text-[8px] font-bold uppercase tracking-widest text-amber-400/50">Global Alerts · 12h</span>
+              <span className="text-[8px] font-bold uppercase tracking-widest text-amber-400/50">Alertes · 12h</span>
             </div>
             {critAlerts.length === 0 ? (
-              <div className="text-[9px] font-mono text-white/20">No recent alerts</div>
+              <div className="text-[9px] font-mono text-white/20">Aucune alerte récente</div>
             ) : (
               <div className="space-y-2">
                 {critAlerts.map(a => (
@@ -1196,11 +1358,12 @@ function TiangongDetail({ onBack }: { onBack?: () => void }) {
 
           {/* Links */}
           <div className="rounded-2xl border border-white/8 bg-black/60 p-3.5 space-y-2">
-            <div className="text-[8px] font-bold uppercase tracking-widest text-white/25 mb-2">Sources</div>
+            <div className="text-[8px] font-bold uppercase tracking-widest mb-2" style={{ color: `${ACCENT}50` }}>Sources Officielles</div>
             {[
-              { label: 'CNSA officiel', url: 'http://www.cnsa.gov.cn' },
-              { label: 'Heavens-Above', url: 'https://heavens-above.com/satinfo.aspx?satid=48274' },
-              { label: 'CelesTrak TLE', url: 'https://celestrak.org/SOCRATES/query.php?IDENT=4&NAME1=TIANGONG&NAME2=ISS' },
+              { label: 'CNSA Officiel', url: 'http://www.cnsa.gov.cn' },
+              { label: 'Heavens-Above CSS', url: 'https://heavens-above.com/satinfo.aspx?satid=48274' },
+              { label: 'N2YO Tracker', url: 'https://www.n2yo.com/satellite/?s=48274' },
+              { label: 'CelesTrak TLE', url: 'https://celestrak.org/SOCRATES/query.php?IDENT=4&NAME1=TIANGONG' },
             ].map(({ label, url }) => (
               <a key={label} href={url} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-[9px] font-mono hover:text-white transition-colors"
@@ -1217,6 +1380,106 @@ function TiangongDetail({ onBack }: { onBack?: () => void }) {
 }
 
 // ── Launches View ─────────────────────────────────────────────────────────────
+
+type AgencyFilter = 'ALL' | 'SPACEX' | 'NASA' | 'ESA' | 'CNSA' | 'ROSCOSMOS' | 'ROCKETLAB' | 'AUTRES';
+
+const AGENCY_FILTERS: { key: AgencyFilter; label: string; color: string; match: string[] }[] = [
+  { key: 'ALL',       label: 'Toutes',       color: '#FFFFFF', match: [] },
+  { key: 'SPACEX',    label: 'SpaceX',       color: '#005288', match: ['spacex'] },
+  { key: 'NASA',      label: 'NASA / ULA',   color: '#0B3D91', match: ['nasa', 'united launch alliance', 'ula', 'boeing'] },
+  { key: 'ESA',       label: 'ESA / Ariane', color: '#003299', match: ['esa', 'ariane', 'arianespace', 'cnes', 'european'] },
+  { key: 'CNSA',      label: 'CNSA',         color: '#DE2910', match: ['cnsa', 'casc', 'calt', 'landspace', 'china', 'chinese'] },
+  { key: 'ROSCOSMOS', label: 'Roscosmos',    color: '#1A3E72', match: ['roscosmos', 'russian', 'soyuz', 'energia'] },
+  { key: 'ROCKETLAB', label: 'Rocket Lab',   color: '#E60012', match: ['rocket lab'] },
+  { key: 'AUTRES',    label: 'Autres',       color: '#64748b', match: [] },
+];
+
+function matchesAgency(launch: Launch, filter: AgencyFilter): boolean {
+  if (filter === 'ALL') return true;
+  const name = (launch.launch_service_provider?.name ?? '').toLowerCase();
+  if (filter === 'AUTRES') {
+    return !AGENCY_FILTERS.filter(af => af.key !== 'ALL' && af.key !== 'AUTRES')
+      .some(af => af.match.some(m => name.includes(m)));
+  }
+  const f = AGENCY_FILTERS.find(af => af.key === filter);
+  return f ? f.match.some(m => name.includes(m)) : true;
+}
+
+function TimeBlock({ value, unit, urgent }: { value: number; unit: string; urgent?: boolean }) {
+  const fmt = String(value).padStart(2, '0');
+  const color = urgent ? '#FF4500' : '#00F0FF';
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="text-3xl font-black font-mono tabular-nums px-2.5 py-1.5 rounded-lg"
+        style={{
+          color,
+          background: urgent ? 'rgba(255,69,0,0.1)' : 'rgba(0,240,255,0.07)',
+          border: `1px solid ${urgent ? 'rgba(255,69,0,0.3)' : 'rgba(0,240,255,0.2)'}`,
+          textShadow: `0 0 16px ${urgent ? 'rgba(255,69,0,0.7)' : 'rgba(0,240,255,0.5)'}`,
+          minWidth: '2.8ch',
+          textAlign: 'center',
+        }}>
+        {fmt}
+      </div>
+      <div className="text-[7px] font-black uppercase tracking-widest"
+        style={{ color: urgent ? 'rgba(255,69,0,0.5)' : 'rgba(0,240,255,0.35)' }}>
+        {unit}
+      </div>
+    </div>
+  );
+}
+
+function CinematicCountdown({ net, isLive }: { net: string; isLive?: boolean }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => tick(n => n + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const ms = new Date(net).getTime() - Date.now();
+
+  if (isLive || (ms <= 0 && ms > -3600000)) {
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex items-center gap-2 px-4 py-2 rounded-lg"
+          style={{ background: 'rgba(255,0,60,0.12)', border: '1px solid rgba(255,0,60,0.35)' }}>
+          <span className="w-2 h-2 rounded-full bg-red-400 animate-ping" />
+          <span className="text-base font-black text-red-400 tracking-widest animate-pulse">EN VOL</span>
+        </div>
+        <div className="text-[8px] font-mono text-white/25">Lancement en cours</div>
+      </div>
+    );
+  }
+  if (ms < -3600000) {
+    return (
+      <div className="text-[10px] font-mono text-white/30 text-center">
+        {new Date(net).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} UTC
+      </div>
+    );
+  }
+  const d = Math.floor(ms / 86400000);
+  const h = Math.floor((ms % 86400000) / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  const urgent = ms < 3600000;
+  const sepColor = urgent ? 'rgba(255,69,0,0.4)' : 'rgba(0,240,255,0.25)';
+
+  return (
+    <div className="flex items-end gap-1.5">
+      {d > 0 && (
+        <>
+          <TimeBlock value={d} unit="JOURS" urgent={urgent} />
+          <span className="text-2xl font-black mb-7" style={{ color: sepColor }}>:</span>
+        </>
+      )}
+      <TimeBlock value={h} unit="H" urgent={urgent} />
+      <span className="text-2xl font-black mb-7" style={{ color: sepColor }}>:</span>
+      <TimeBlock value={m} unit="MIN" urgent={urgent} />
+      <span className="text-2xl font-black mb-7" style={{ color: sepColor }}>:</span>
+      <TimeBlock value={s} unit="SEC" urgent={urgent} />
+    </div>
+  );
+}
 
 function CountdownBadge({ net, color }: { net: string; color: string }) {
   const [, tick] = useState(0);
@@ -1356,9 +1619,14 @@ function LaunchCard({ launch, featured }: { launch: Launch; featured?: boolean }
 function LaunchesView() {
   const { upcoming, previous, loading, lastRefresh, refresh } = useLaunches();
   const [refreshing, setRefreshing] = useState(false);
+  const [agencyFilter, setAgencyFilter] = useState<AgencyFilter>('ALL');
 
   const liveLaunches = upcoming.filter(l => l.links?.webcast_live);
-  const upcomingFiltered = upcoming.filter(l => !l.links?.webcast_live);
+  const allUpcoming = upcoming.filter(l => !l.links?.webcast_live);
+  const upcomingFiltered = allUpcoming.filter(l => matchesAgency(l, agencyFilter));
+  const previousFiltered = previous.filter(l => matchesAgency(l, agencyFilter));
+
+  const nextLaunch = upcomingFiltered[0] ?? allUpcoming[0];
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -1372,13 +1640,13 @@ function LaunchesView() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-1">Toutes agences · Launch Library 2</div>
+          <div className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-1">Launch Library 2 · Temps Réel</div>
           <div className="text-lg font-black text-white">Calendrier des Lancements</div>
         </div>
         <div className="flex items-center gap-2">
           {lastRefresh && (
             <div className="text-[8px] font-mono text-white/20">
-              Mis à jour {lastRefresh.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+              {lastRefresh.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
             </div>
           )}
           <button
@@ -1393,15 +1661,101 @@ function LaunchesView() {
         </div>
       </div>
 
+      {/* Agency filter pills */}
+      <div className="flex flex-wrap gap-2">
+        {AGENCY_FILTERS.map(af => {
+          const isActive = agencyFilter === af.key;
+          return (
+            <button
+              key={af.key}
+              onClick={() => setAgencyFilter(af.key)}
+              className="text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full transition-all"
+              style={{
+                background: isActive ? `${af.color}22` : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${isActive ? `${af.color}60` : 'rgba(255,255,255,0.08)'}`,
+                color: isActive ? af.color : 'rgba(255,255,255,0.3)',
+                boxShadow: isActive ? `0 0 12px ${af.color}22` : 'none',
+              }}
+            >
+              {af.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-16 gap-3 text-[10px] font-mono text-white/30">
           <Rocket className="w-5 h-5 animate-bounce" />
-          <span className="animate-pulse">Fetching Launch Library data…</span>
+          <span className="animate-pulse">Chargement des données de lancement…</span>
         </div>
       )}
 
-      {/* Live launches - hero */}
+      {/* Cinematic hero card — next launch countdown */}
+      {!loading && nextLaunch && (
+        <div className="relative rounded-2xl overflow-hidden border"
+          style={{ borderColor: 'rgba(0,240,255,0.12)', background: 'linear-gradient(135deg, rgba(0,240,255,0.04) 0%, rgba(0,0,0,0.95) 50%, rgba(255,184,0,0.04) 100%)' }}>
+
+          {/* Background image */}
+          {nextLaunch.image && (
+            <img
+              src={nextLaunch.image}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ opacity: 0.07, filter: 'saturate(0.3) brightness(0.5)' }}
+            />
+          )}
+
+          {/* Grid lines overlay */}
+          <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(0,240,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(0,240,255,0.025) 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
+
+          <div className="relative z-10 p-6 flex flex-col items-center text-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded border" style={{ background: 'rgba(255,184,0,0.1)', borderColor: 'rgba(255,184,0,0.3)', color: '#FFB800' }}>
+                PROCHAIN LANCEMENT
+              </span>
+              {nextLaunch.status?.abbrev === 'Go' && (
+                <span className="text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded border" style={{ background: 'rgba(0,240,80,0.1)', borderColor: 'rgba(0,240,80,0.25)', color: '#00F050' }}>
+                  GO FOR LAUNCH
+                </span>
+              )}
+            </div>
+
+            <div>
+              <div className="text-xl font-black text-white mb-1 leading-tight">{nextLaunch.name}</div>
+              <div className="text-[10px] font-mono text-white/30">
+                {nextLaunch.launch_service_provider?.name} · {nextLaunch.pad?.name ?? 'Site inconnu'}
+              </div>
+            </div>
+
+            <CinematicCountdown net={nextLaunch.net} isLive={!!nextLaunch.links?.webcast_live} />
+
+            <div className="text-[9px] font-mono text-white/25">
+              {new Date(nextLaunch.net).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })} UTC
+            </div>
+
+            {/* Links */}
+            <div className="flex items-center gap-3">
+              {nextLaunch.links?.webcast && (
+                <a href={nextLaunch.links.webcast} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[9px] font-bold font-mono transition-all hover:opacity-90"
+                  style={{ background: 'rgba(255,0,0,0.12)', border: '1px solid rgba(255,0,0,0.3)', color: '#FF4444' }}>
+                  <Play className="w-3 h-3" />
+                  Regarder EN DIRECT ↗
+                </a>
+              )}
+              <a href="https://ll.thespacedevs.com" target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[9px] font-bold font-mono transition-all hover:opacity-80"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' }}>
+                <ExternalLink className="w-3 h-3" />
+                Launch Library ↗
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live launches */}
       {!loading && liveLaunches.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
@@ -1431,28 +1785,30 @@ function LaunchesView() {
       )}
 
       {/* Recent past */}
-      {!loading && previous.length > 0 && (
+      {!loading && previousFiltered.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-3">
             <div className="w-0.5 h-4 rounded-full bg-white/20" />
             <span className="text-[10px] font-black uppercase tracking-widest text-white/30">Lancements récents</span>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {previous.slice(0, 8).map(l => <LaunchCard key={l.id} launch={l} />)}
+            {previousFiltered.slice(0, 8).map(l => <LaunchCard key={l.id} launch={l} />)}
           </div>
         </div>
       )}
 
-      {/* Empty */}
-      {!loading && upcoming.length === 0 && previous.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-          <Rocket className="w-10 h-10 text-white/10" />
+      {/* No results for current filter */}
+      {!loading && upcomingFiltered.length === 0 && previousFiltered.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
+          <Rocket className="w-8 h-8 text-white/10" />
           <div className="text-[11px] font-mono text-white/20">
-            Données indisponibles — vérifiez votre connexion
+            {agencyFilter === 'ALL' ? 'Données indisponibles — vérifiez votre connexion' : `Aucun lancement pour ${AGENCY_FILTERS.find(af => af.key === agencyFilter)?.label}`}
           </div>
-          <button onClick={handleRefresh} className="text-[9px] font-mono text-primary/50 hover:text-primary transition-colors">
-            Réessayer
-          </button>
+          {agencyFilter !== 'ALL' && (
+            <button onClick={() => setAgencyFilter('ALL')} className="text-[9px] font-mono text-primary/50 hover:text-primary transition-colors">
+              Voir tous les lancements
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -1462,13 +1818,13 @@ function LaunchesView() {
 // ── Page principale ────────────────────────────────────────────────────────────
 
 const SPACE_TABS: { id: SpaceTab; label: string; icon: string; color: string }[] = [
-  { id: 'iss',      label: 'ISS',        icon: '🛸', color: '#00F0FF' },
-  { id: 'tiangong', label: 'TIANGONG',   icon: '🔴', color: '#FF4500' },
   { id: 'launches', label: 'LANCEMENTS', icon: '🚀', color: '#FFB800' },
+  { id: 'iss',      label: 'ISS',        icon: '🛸', color: '#00F0FF' },
+  { id: 'tiangong', label: 'TIANGONG',   icon: '🔴', color: '#DE2910' },
 ];
 
 export default function LiveView() {
-  const [tab, setTab] = useState<SpaceTab>('iss');
+  const [tab, setTab] = useState<SpaceTab>('launches');
 
   return (
     <AppLayout>
