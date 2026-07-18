@@ -210,12 +210,12 @@ var init_db = __esm({
   }
 });
 
-// api/index.ts
-var index_exports = {};
-__export(index_exports, {
+// server/vercel-handler.ts
+var vercel_handler_exports = {};
+__export(vercel_handler_exports, {
   default: () => handler
 });
-module.exports = __toCommonJS(index_exports);
+module.exports = __toCommonJS(vercel_handler_exports);
 var import_express2 = __toESM(require("express"), 1);
 var import_http = require("http");
 
@@ -2380,7 +2380,7 @@ function serveStatic(app2) {
   });
 }
 
-// api/index.ts
+// server/vercel-handler.ts
 var app = (0, import_express2.default)();
 app.use("/api/chat", import_express2.default.raw({ type: "*/*", limit: "2mb" }), (req, _res, next) => {
   if (Buffer.isBuffer(req.body)) {
