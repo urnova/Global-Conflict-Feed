@@ -59,6 +59,23 @@ async function buildAll() {
     external: externals,
     logLevel: "info",
   });
+
+  // Bundle api/index.ts for Vercel serverless — externalise tous les packages npm
+  // (Vercel déploie node_modules), bundle uniquement les fichiers locaux (server/, shared/)
+  console.log("building api function for Vercel...");
+  await esbuild({
+    entryPoints: ["api/index.ts"],
+    platform: "node",
+    bundle: true,
+    format: "cjs",
+    outfile: "api/index.js",
+    external: allDeps,
+    tsconfig: "tsconfig.json",
+    define: {
+      "process.env.NODE_ENV": '"production"',
+    },
+    logLevel: "info",
+  });
 }
 
 buildAll().catch((err) => {
