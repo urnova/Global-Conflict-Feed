@@ -333,6 +333,11 @@ export async function registerRoutes(
         try { results.gdelt = await fetchGdeltEvents(); total += results.gdelt; } catch (e) { results.gdelt = "error"; }
         try { results.firms = await fetchFirmsAlerts(); total += results.firms; } catch (e) { results.firms = "error"; }
         
+        // Additional sources
+        try { const { fetchUkraineAlerts } = await import('./services/ukraine-alerts.js'); results.ukraine = await fetchUkraineAlerts(); total += results.ukraine; } catch (e) { results.ukraine = "error"; }
+        try { const { fetchUcdpEvents } = await import('./services/ucdp.js'); results.ucdp = await fetchUcdpEvents(); total += results.ucdp; } catch (e) { results.ucdp = "error"; }
+        try { const { fetchEarthquakeAlerts } = await import('./services/usgs-earthquake.js'); results.usgs = await fetchEarthquakeAlerts(); total += results.usgs; } catch (e) { results.usgs = "error"; }
+        
         res.json({ message: "Sync complete", total, results });
       } catch (err) {
         res.status(500).json({ message: "Sync failed" });
