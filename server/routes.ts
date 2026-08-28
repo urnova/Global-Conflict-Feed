@@ -319,7 +319,27 @@ export async function registerRoutes(
     }
   });
 
-  // ── POST /api/alerts/cleanup (delete alerts older than N hours) ────────────
+    // 🚀 GET/POST /api/sync (CRON friendly endpoint)
+    app.all('/api/sync', async (req, res) => {
+      try {
+        const secret = req.query.secret || req.headers['x-cron-secret'];
+        if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
+          return res.status(401).json({ message: "Invalid CRON_SECRET" });
+        }
+        let total = 0;
+        const results: Record<string, any> = {};
+        
+        try { results.rss = await fetchRssAlerts(); total += results.rss; } catch (e) { results.rss = "error"; }
+        try { results.gdelt = await fetchGdeltEvents(); total += results.gdelt; } catch (e) { results.gdelt = "error"; }
+        try { results.firms = await fetchFirmsAlerts(); total += results.firms; } catch (e) { results.firms = "error"; }
+        
+        res.json({ message: "Sync complete", total, results });
+      } catch (err) {
+        res.status(500).json({ message: "Sync failed" });
+      }
+    });
+
+    // 🚀 POST /api/alerts/cleanup (delete alerts older than N hours) ────────────
   app.post('/api/alerts/cleanup', async (req, res) => {
     try {
       const authHeader = req.headers.authorization;
