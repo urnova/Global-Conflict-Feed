@@ -12,6 +12,7 @@
 
 import { createHash } from 'crypto';
 import { storage } from '../storage.js';
+import { classifyAlert } from './groq-classifier.js';
 import type { InsertAlert } from '../../shared/schema.js';
 
 const UCDP_API_KEY = process.env.UCDP_API_KEY;
@@ -110,6 +111,7 @@ export async function fetchUcdpEvents(): Promise<number> {
     const endStr = endDate.toISOString().split('T')[0];
 
     let totalInserted = 0;
+    const aiPromises: Promise<void>[] = [];
 
     for (let page = 1; page <= MAX_PAGES; page++) {
         const url = `${UCDP_BASE}?pagesize=100&page=${page}&StartDate=${startStr}&EndDate=${endStr}`;
@@ -172,21 +174,43 @@ export async function fetchUcdpEvents(): Promise<number> {
                     isActive: true,
                     fingerprint: fp,
                     eventStart: ev.date_start ? new Date(ev.date_start) : undefined,
-                    aiVerified: true,
-                    aiLabel: title.slice(0, 150),
+                    originLat: null,
+                    originLng: null,
                 };
 
                 const created = await storage.createAlertIfNew(alert);
-                if (created) totalInserted++;
+                if (created) {
+                    totalInserted++;
+                    aiPromises.push(classifyAlert(alert.title, alert.description).then(async (ai) => {
+                        if (ai) {
+                            await storage.updateAlert(created.id, {
+                                aiVerified: ai.isRelevant,
+                                aiLabel: ai.label || alert.title,
+                                type: ai.type || alert.type,
+                                severity: ai.severity || alert.severity,
+                                isActive: ai.isRelevant
+                            });
+                        } else {
+                            await storage.updateAlert(created.id, { aiVerified: true, aiLabel: alert.title });
+                        }
+                    }));
+                }
+                
+                if (totalInserted >= 20) break; // limit to 20 per sync to avoid rate limits
             }
 
-            // Si moins de 100 résultats → dernière page
-            if (events.length < 100) break;
+            // Si moins de 100 résultats = dernière page
+            if (events.length < 100 || totalInserted >= 20) break;
 
         } catch (err) {
             console.warn(`[ucdp] Fetch error page ${page}:`, err);
             break;
         }
+    }
+
+    if (aiPromises.length > 0) {
+        console.log(`[ucdp] Waiting for ${aiPromises.length} AI classifications to complete...`);
+        await Promise.allSettled(aiPromises);
     }
 
     if (totalInserted > 0) {

@@ -12,6 +12,7 @@
 import { createHash } from 'crypto';
 import { storage } from '../storage.js';
 import type { InsertAlert } from '../../shared/schema.js';
+import { classifyAlert } from './groq-classifier.js';
 
 const UKRAINE_KEY = process.env.UKRAINE_ALERTS_KEY;
 const ALERTS_BASE = 'https://alerts.in.ua/api/v3/alerts/active.json';
@@ -72,6 +73,8 @@ export async function fetchUkraineAlerts(): Promise<number> {
         console.warn('[ua-alerts] UKRAINE_ALERTS_KEY not set — skipping');
         return 0;
     }
+
+    const aiPromises: Promise<void>[] = [];
 
     let data: AlertsApiResponse;
     try {
@@ -155,15 +158,33 @@ export async function fetchUkraineAlerts(): Promise<number> {
             isActive: true,
             fingerprint: fp,
             eventStart: startedAt,
-            aiVerified: true,
-            aiLabel: title,
             // Moscou comme origine approximative pour visualiser l'arc sur le globe
             originLat: isArtillery ? null : '55.75',
             originLng: isArtillery ? null : '37.62',
         };
 
         const created = await storage.createAlertIfNew(newAlert);
-        if (created) inserted++;
+        if (created) {
+            inserted++;
+            aiPromises.push(classifyAlert(title, description).then(async (ai) => {
+                if (ai) {
+                    await storage.updateAlert(created.id, {
+                        aiVerified: ai.isRelevant,
+                        aiLabel: ai.label || title,
+                        type: ai.type || newAlert.type,
+                        severity: ai.severity || newAlert.severity,
+                        isActive: ai.isRelevant
+                    });
+                } else {
+                    await storage.updateAlert(created.id, { aiVerified: true, aiLabel: title });
+                }
+            }));
+        }
+    }
+
+    if (aiPromises.length > 0) {
+        console.log(`[ua-alerts] Waiting for ${aiPromises.length} AI classifications to complete...`);
+        await Promise.allSettled(aiPromises);
     }
 
     if (inserted > 0) {

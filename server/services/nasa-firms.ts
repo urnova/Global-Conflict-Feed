@@ -1,4 +1,4 @@
-﻿/**
+/**
  * NASA FIRMS Integration
  * Fetches near-real-time thermal anomalies (explosions, fires, strikes)
  * detected by VIIRS satellite.
@@ -11,6 +11,7 @@
 
 import { createHash } from 'crypto';
 import { storage } from '../storage.js';
+import { classifyAlert } from './groq-classifier.js';
 
 function fingerprint(input: string): string {
     return createHash('sha256').update(input).digest('hex').slice(0, 32);
@@ -76,6 +77,7 @@ export async function fetchFirmsAlerts(): Promise<number> {
     }
 
     let added = 0;
+    const aiPromises: Promise<void>[] = [];
 
     for (const zone of CONFLICT_ZONES) {
         try {
@@ -124,9 +126,12 @@ export async function fetchFirmsAlerts(): Promise<number> {
                 const dateStr = new Date().toISOString().slice(0, 10);
                 const fp = fingerprint(`firms|${lat.toFixed(2)}|${lng.toFixed(2)}|${dateStr}`);
 
+                const title = `Anomalie thermique satellite — ${zone.name}`;
+                const description = `Détectée par VIIRS/SNPP. Luminosité: ${brightness.toFixed(0)}K, FRP: ${frp.toFixed(0)} MW, Confiance: ${confidence}%. Possible impact/explosion.`;
+
                 const inserted = await storage.createAlertIfNew({
-                    title: `Anomalie thermique satellite — ${zone.name}`,
-                    description: `Détectée par VIIRS/SNPP. Luminosité: ${brightness.toFixed(0)}K, FRP: ${frp.toFixed(0)} MW, Confiance: ${confidence}%. Possible impact/explosion.`,
+                    title,
+                    description,
                     lat: lat.toString(),
                     lng: lng.toString(),
                     country: zone.country,
@@ -140,15 +145,38 @@ export async function fetchFirmsAlerts(): Promise<number> {
                     fingerprint: fp,
                     severityScore: getSeverityScore(frp),
                     eventStart: new Date(),
+                    originLat: null,
+                    originLng: null,
                 });
 
                 if (!inserted) continue;
                 added++;
+
+                aiPromises.push(classifyAlert(title, description).then(async (ai) => {
+                    if (ai) {
+                        await storage.updateAlert(inserted.id, {
+                            aiVerified: ai.isRelevant,
+                            aiLabel: ai.label || title,
+                            type: ai.type || 'explosion',
+                            severity: ai.severity || severity,
+                            isActive: ai.isRelevant
+                        });
+                    } else {
+                        await storage.updateAlert(inserted.id, { aiVerified: true, aiLabel: title });
+                    }
+                }));
+
                 if (added >= 20) break; // Cap per cycle
             }
+            if (added >= 20) break;
         } catch (err) {
             console.error(`[firms] Error for zone ${zone.name}:`, err);
         }
+    }
+
+    if (aiPromises.length > 0) {
+        console.log(`[firms] Waiting for ${aiPromises.length} AI classifications to complete...`);
+        await Promise.allSettled(aiPromises);
     }
 
     // Reset de-dupe set periodically (keep it manageable)
