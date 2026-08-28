@@ -13,7 +13,29 @@ import LiveView from "@/pages/liveview";
 import RadioMilitary from "@/pages/radio";
 import AdminPage from "@/pages/admin";
 
+import { useEffect } from "react";
+
+function useAutoSync() {
+  useEffect(() => {
+    const syncFeeds = async () => {
+      try {
+        await fetch('/api/sync', { method: 'POST' });
+      } catch (e) {
+        // ignore errors silently
+      }
+    };
+    
+    // Sync immediately on load
+    syncFeeds();
+    
+    // Then every 2 minutes
+    const interval = setInterval(syncFeeds, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+}
+
 function Router() {
+  useAutoSync();
   return (
     <Switch>
       <Route path="/" component={Dashboard} />

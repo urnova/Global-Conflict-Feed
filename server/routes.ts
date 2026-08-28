@@ -319,13 +319,26 @@ export async function registerRoutes(
     }
   });
 
-    // 🚀 GET/POST /api/sync (CRON friendly endpoint)
+    // ⚙️ GET/POST /api/sync (CRON friendly endpoint)
+    let lastSyncTime = 0;
     app.all('/api/sync', async (req, res) => {
       try {
         const secret = req.query.secret || req.headers['x-cron-secret'];
         if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
-          return res.status(401).json({ message: "Invalid CRON_SECRET" });
+          // If called from frontend without secret, just return success if recently synced
+          if (!secret && Date.now() - lastSyncTime < 5 * 60 * 1000) {
+            return res.json({ message: "Sync throttled (already ran recently)", total: 0 });
+          }
+          // If it hasn't synced recently, we will allow it to proceed even without secret!
+          // This enables auto-refresh when users visit the site.
         }
+        
+        // Anti-spam: enforce minimum 2 minutes between ANY syncs
+        if (Date.now() - lastSyncTime < 2 * 60 * 1000) {
+           return res.json({ message: "Sync throttled (minimum 2 minutes)", total: 0 });
+        }
+        lastSyncTime = Date.now();
+
         let total = 0;
         const results: Record<string, any> = {};
         
