@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertAlertSchema, alerts, apiKeys, insertApiKeySchema } from './schema';
+import { insertAlertSchema, alerts, apiKeys, insertApiKeySchema } from './schema.js';
 
 export const errorSchemas = {
   validation: z.object({
