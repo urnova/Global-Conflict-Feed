@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "buildCommand": "npx vite build",
-  "installCommand": "npm install --include=dev",
+  "buildCommand": "pnpm exec vite build",
+  "installCommand": "pnpm install",
   "outputDirectory": "dist/public",
   "functions": {
     "api/index.ts": {
