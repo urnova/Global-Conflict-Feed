@@ -565,21 +565,25 @@ export async function registerRoutes(
   });
 
 
-  // ── Admin auth ────────────────────────────────────────────────────────────
+  // ── Admin auth ────────────────────────────────────────────────────────────  // 🔐 Admin auth 🔐
   app.post('/api/admin/auth', async (req, res) => {
     const { password } = req.body ?? {};
-    const adminPassword = process.env.ADMIN_PASSWORD || 'ASTRAL-ADM-8841';
-    if (password === adminPassword) {
+    const adminPassword = (process.env.ADMIN_PASSWORD || 'ASTRAL-ADM-8841').trim();
+    const inputPassword = (password || '').trim();
+    if (inputPassword && inputPassword === adminPassword) {
       res.json({ ok: true });
     } else {
+      console.log(`[auth] Admin login failed. Expected length: ${adminPassword.length}, got: ${inputPassword.length}`);
       res.status(403).json({ error: 'Unauthorized' });
     }
   });
 
   function requireAdmin(req: any, res: any, next: any) {
-    const key = req.headers['x-admin-key'] as string;
-    const adminPassword = process.env.ADMIN_PASSWORD || 'ASTRAL-ADM-8841';
-    if (key !== adminPassword) return res.status(403).json({ error: 'Unauthorized' });
+    const key = (req.headers['x-admin-key'] as string || '').trim();
+    const adminPassword = (process.env.ADMIN_PASSWORD || 'ASTRAL-ADM-8841').trim();
+    if (!key || key !== adminPassword) {
+      return res.status(401).json({ error: 'Admin only' });
+    }
     next();
   }
 
