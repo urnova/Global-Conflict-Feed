@@ -1,4 +1,4 @@
-﻿/**
+/**
  * RSS Feed Service
  * Fetches conflict-related news from Reuters, AP, and Al Jazeera RSS feeds.
  * Parses XML, extracts geo/type/severity hints from keywords, and stores
@@ -196,6 +196,7 @@ export async function fetchRssAlerts(): Promise<number> {
     let added = 0;
     const existing = await storage.getAlerts();
     const seenSources = new Set(existing.map(a => a.source).filter(Boolean));
+    const aiPromises: Promise<void>[] = [];
 
     for (const feed of RSS_FEEDS) {
         try {
@@ -319,9 +320,9 @@ export async function fetchRssAlerts(): Promise<number> {
                 seenSources.add(item.link);
                 added++;
 
-                // Fire-and-forget Groq classification (non-blocking)
+                // Track Groq classification so Vercel doesn't kill it
                 const alertId = inserted.id;
-                classifyAlert(cleanTitle, cleanDesc).then(async (ai) => {
+                aiPromises.push(classifyAlert(cleanTitle, cleanDesc).then(async (ai) => {
                   if (!ai) {
                     // No Groq key or error — mark as auto-verified with keyword classification
                     await storage.updateAlert(alertId, {
@@ -365,6 +366,11 @@ export async function fetchRssAlerts(): Promise<number> {
         }
     }
 
-    console.log(`[rss] ✓ Added ${added} RSS alerts`);
+    if (aiPromises.length > 0) {
+        console.log(`[rss] Waiting for ${aiPromises.length} AI classifications to complete...`);
+        await Promise.allSettled(aiPromises);
+    }
+
+    console.log(`[rss] 📡 Added ${added} RSS alerts`);
     return added;
 }

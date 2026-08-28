@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AI Summary Service — Argos V5
  * Generates an hourly geopolitical situation summary using Groq.
  * Cached for 60 minutes to avoid API abuse.
@@ -77,7 +77,7 @@ Style : concis, militaire, factuel. Maximum 200 mots. Pas de markdown superflu, 
       body: JSON.stringify({
         model: 'openai/gpt-oss-120b',
         messages: [{ role: 'user', content: prompt }],
-        max_tokens: 400,
+        max_tokens: 1200,
         temperature: 0.3,
       }),
       signal: AbortSignal.timeout(15000),

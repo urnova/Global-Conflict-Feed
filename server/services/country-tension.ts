@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Country Tension Service — Argos V7
  * AI-powered classification via Groq (hourly cache).
  * Falls back to algorithmic scoring if Groq is unavailable.
@@ -118,7 +118,7 @@ Classifie chaque pays actif par niveau de tension. Statuts:
 - "stable" = stable (score < 8)
 
 Réponds UNIQUEMENT avec du JSON valide. Format exact:
-[{"code":"XX","name":"Nom du pays","status":"war","score":85,"reason":"Raison courte en français (max 60 chars)","activeAlerts":3}]
+{"tensions": [{"code":"XX","name":"Nom du pays","status":"war","score":85,"reason":"Raison courte en français (max 60 chars)","activeAlerts":3}]}
 
 Inclure TOUS les pays avec score > 5 (max 35 pays). Pas d'explication, uniquement le JSON.`;
 
@@ -132,29 +132,39 @@ Inclure TOUS les pays avec score > 5 (max 35 pays). Pas d'explication, uniquemen
             model: 'openai/gpt-oss-120b',
             messages: [{ role: 'user', content: prompt }],
             temperature: 0.2,
-            max_tokens: 2000,
+            response_format: { type: "json_object" }
         }),
+        signal: AbortSignal.timeout(15000),
     });
 
     if (!resp.ok) {
-        console.error('[tension] Groq API error:', resp.status, await resp.text());
+        console.error(`[tension] Groq API error: ${resp.status} ${await resp.text()}`);
         return null;
     }
 
     const json = await resp.json();
     const raw = json.choices?.[0]?.message?.content ?? '';
 
-    // Extract JSON array from response
-    const match = raw.match(/\[[\s\S]*\]/);
-    if (!match) {
-        console.error('[tension] No JSON array in Groq response');
+    // Extract JSON from response
+    let parsedObj;
+    try {
+        const match = raw.match(/\{[\s\S]*\}/);
+        parsedObj = JSON.parse(match ? match[0] : raw);
+    } catch (e) {
+        console.error('[tension] Failed to parse Groq response. Raw output:', raw);
+        return null;
+    }
+    
+    const parsedArray = parsedObj.tensions;
+    if (!Array.isArray(parsedArray)) {
+        console.error('[tension] Groq response missing "tensions" array. Raw output:', raw);
         return null;
     }
 
     const parsed: Array<{
         code: string; name: string; status: TensionStatus;
         score: number; reason: string; activeAlerts?: number;
-    }> = JSON.parse(match[0]);
+    }> = parsedArray;
 
     return parsed.map(entry => {
         const staticData = STATIC_TENSIONS[entry.code];
