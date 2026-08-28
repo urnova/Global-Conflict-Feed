@@ -1,4 +1,4 @@
-﻿import { db } from "./db.js";
+import { db } from "./db.js";
 import { lt, gt, and, gte } from "drizzle-orm";
 import {
   alerts,
@@ -11,7 +11,7 @@ import {
   type AlertsListResponse,
   type CreateApiKeyRequest,
   type ApiKeyResponse,
-} from "@shared/schema";
+} from "../shared/schema.js";
 import { eq, desc } from "drizzle-orm";
 import { randomBytes } from "crypto";
 

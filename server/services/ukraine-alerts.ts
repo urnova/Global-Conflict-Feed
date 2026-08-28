@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Ukraine Air Raid Alerts — Argos V5
  * API : alerts.in.ua — alertes raids aériens en temps réel par oblast ukrainien.
  *
@@ -11,7 +11,7 @@
 
 import { createHash } from 'crypto';
 import { storage } from '../storage.js';
-import type { InsertAlert } from '@shared/schema';
+import type { InsertAlert } from '../../shared/schema.js';
 
 const UKRAINE_KEY = process.env.UKRAINE_ALERTS_KEY;
 const ALERTS_BASE = 'https://alerts.in.ua/api/v3/alerts/active.json';

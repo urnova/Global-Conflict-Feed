@@ -1,7 +1,7 @@
-﻿import type { Express } from "express";
+import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage.js";
-import { api } from "@shared/routes";
+import { api } from "../shared/routes.js";
 import { z } from "zod";
 import { broadcast } from "./ws.js";
 import { addSseClient, removeSseClient, broadcastSse } from "./sse.js";

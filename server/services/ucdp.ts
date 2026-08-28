@@ -1,4 +1,4 @@
-﻿/**
+/**
  * UCDP Georeferenced Events Dataset (GED) — Argos V5
  * Uppsala Conflict Data Program — Uppsala University
  *
@@ -12,7 +12,7 @@
 
 import { createHash } from 'crypto';
 import { storage } from '../storage.js';
-import type { InsertAlert } from '@shared/schema';
+import type { InsertAlert } from '../../shared/schema.js';
 
 const UCDP_API_KEY = process.env.UCDP_API_KEY;
 const UCDP_BASE = 'https://ucdpapi.pcr.uu.se/api/gedevents/25.1';
