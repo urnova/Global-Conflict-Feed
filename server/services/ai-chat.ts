@@ -96,7 +96,7 @@ export async function chatWithArgos(
         const res = await fetch(GROQ_URL, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: 'llama-3.1-8b-instant', messages: fullMessages, max_tokens: 600, temperature: 0.4 }),
+            body: JSON.stringify({ model: 'openai/gpt-oss-120b', messages: fullMessages, max_tokens: 600, temperature: 0.4 }),
             signal: AbortSignal.timeout(20_000),
         });
         if (!res.ok) return null;
@@ -134,7 +134,7 @@ export async function streamChatWithArgos(
             method: 'POST',
             headers: { 'Authorization': `Bearer ${GROQ_API_KEY}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: 'llama-3.1-8b-instant',
+                model: 'openai/gpt-oss-120b',
                 messages: fullMessages,
                 max_tokens: 600,
                 temperature: 0.4,

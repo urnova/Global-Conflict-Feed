@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Groq AI Classifier — Argos V4
  * Classifies RSS articles: relevance, type, severity, French label.
  * Free tier: 14 400 req/day, ~500ms latency (llama-3.1-8b-instant)
@@ -112,7 +112,7 @@ export async function classifyAlert(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: 'openai/gpt-oss-120b',
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: `Titre: ${title}\nDescription: ${description?.slice(0, 600) ?? ''}` },
