@@ -1,16 +1,16 @@
 {
   "version": 2,
-  "buildCommand": "pnpm run build",
-  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "npx vite build",
+  "installCommand": "npm install --include=dev",
   "outputDirectory": "dist/public",
   "functions": {
-    "api/index.js": {
+    "api/index.ts": {
       "maxDuration": 30,
       "memory": 1024
     }
   },
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index.js" },
+    { "source": "/api/:path*", "destination": "/api/index.ts" },
     { "source": "/(.*)",       "destination": "/index.html" }
   ]
 }
