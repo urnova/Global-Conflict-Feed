@@ -343,11 +343,17 @@ export async function registerRoutes(
     try {
       const summary = await getAiSummary();
       if (!summary) {
-        // No briefing in DB yet — trigger background generation if key exists
         if (process.env.GROQ_API_KEY) {
-          refreshAiSummary().catch(() => {});
+          try {
+            // In serverless, we must await background tasks before responding
+            const newSummary = await refreshAiSummary();
+            return res.json(newSummary);
+          } catch (err) {
+            console.error('[AI] Generation failed in route:', err);
+            return res.status(503).json({ message: "Generation failed" });
+          }
         }
-        return res.json(null); // Client shows "en cours de génération"
+        return res.json(null);
       }
       res.json(summary);
     } catch {
