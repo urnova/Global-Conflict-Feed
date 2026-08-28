@@ -89,6 +89,7 @@ export async function fetchEarthquakeAlerts(): Promise<number> {
           severityScore: score,
           isActive: true,
           eventStart: time,
+          isActive: false,
           originLat: null,
           originLng: null,
         });

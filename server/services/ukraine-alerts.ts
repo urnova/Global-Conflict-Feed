@@ -155,8 +155,8 @@ export async function fetchUkraineAlerts(): Promise<number> {
             severity: isArtillery ? 'high' : 'critical',
             status: 'active',
             severityScore: isArtillery ? 7 : 9,
-            isActive: true,
             fingerprint: fp,
+            isActive: false,
             eventStart: startedAt,
             // Moscou comme origine approximative pour visualiser l'arc sur le globe
             originLat: isArtillery ? null : '55.75',

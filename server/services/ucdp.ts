@@ -171,8 +171,8 @@ export async function fetchUcdpEvents(): Promise<number> {
                     severity,
                     status: 'active',
                     severityScore: score,
-                    isActive: true,
                     fingerprint: fp,
+                    isActive: false, // hidden during AI analysis
                     eventStart: ev.date_start ? new Date(ev.date_start) : undefined,
                     originLat: null,
                     originLng: null,

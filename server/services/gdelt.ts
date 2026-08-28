@@ -295,6 +295,7 @@ export async function fetchGdeltEvents(): Promise<number> {
         fingerprint: fp,
         severityScore: getSeverityScore(goldstein, numArticles, type),
         eventStart: eventDate,
+        isActive: false, // hide from UI during AI analysis
         originLat: null,
         originLng: null,
       });

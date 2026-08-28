@@ -313,6 +313,7 @@ export async function fetchRssAlerts(): Promise<number> {
                     fingerprint: fp,
                     severityScore: hasGroq ? 1 : getSeverityScore(combined, kwType),
                     eventStart,
+                    isActive: false,
                     // originLat/originLng set only after AI confirms missile/airstrike
                 });
 

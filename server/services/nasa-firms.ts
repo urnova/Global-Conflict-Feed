@@ -145,6 +145,7 @@ export async function fetchFirmsAlerts(): Promise<number> {
                     fingerprint: fp,
                     severityScore: getSeverityScore(frp),
                     eventStart: new Date(),
+                    isActive: false,
                     originLat: null,
                     originLng: null,
                 });
