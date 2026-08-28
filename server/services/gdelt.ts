@@ -1,4 +1,4 @@
-/**
+﻿/**
  * GDELT Project Integration
  * Fetches real-time conflict events from the GDELT 2.0 database.
  * GDELT updates every 15 minutes and covers news in 100+ languages.
@@ -9,7 +9,7 @@
 
 import AdmZip from 'adm-zip';
 import { createHash } from 'crypto';
-import { storage } from '../storage';
+import { storage } from '../storage.js';
 
 const GDELT_LASTUPDATE_URL = 'http://data.gdeltproject.org/gdeltv2/lastupdate.txt';
 

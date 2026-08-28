@@ -1,4 +1,4 @@
-/**
+﻿/**
  * RSS Feed Service
  * Fetches conflict-related news from Reuters, AP, and Al Jazeera RSS feeds.
  * Parses XML, extracts geo/type/severity hints from keywords, and stores
@@ -6,9 +6,9 @@
  */
 
 import { createHash } from 'crypto';
-import { storage } from '../storage';
-import { detectAggressorCoords } from '../../shared/aggressor-detection';
-import { classifyAlert } from './groq-classifier';
+import { storage } from '../storage.js';
+import { detectAggressorCoords } from '../../shared/aggressor-detection.js';
+import { classifyAlert } from './groq-classifier.js';
 
 // ── SHA-256 fingerprint (32-char prefix) ──────────────────────────────────────
 function fingerprint(input: string): string {

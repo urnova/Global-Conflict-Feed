@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Telegram GramJS Integration
  * Connects via MTProto to fetch real-time messages from conflict channels.
  *
@@ -10,7 +10,7 @@
  */
 
 import { createHash } from 'crypto';
-import { storage } from '../storage';
+import { storage } from '../storage.js';
 
 // ── Lazy-import GramJS to avoid crash if package missing ──────────────────────
 async function getTelegram() {

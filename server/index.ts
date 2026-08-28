@@ -1,16 +1,16 @@
-import express, { type Request, Response, NextFunction } from "express";
+﻿import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
-import { registerRoutes } from "./routes";
-import { serveStatic } from "./static";
-import { fetchGdeltEvents } from "./services/gdelt";
-import { fetchRssAlerts } from "./services/rss";
-import { fetchUcdpEvents } from "./services/ucdp";
-import { fetchUkraineAlerts } from "./services/ukraine-alerts";
-import { refreshAiSummary } from "./services/ai-summary";
-import { registerWss, broadcast } from "./ws";
-import { fetchEarthquakeAlerts } from "./services/usgs-earthquake";
-import { fetchNoaaAlerts, fetchGdacsAlerts, fetchHealthAlerts } from "./services/noaa-weather";
+import { registerRoutes } from "./routes.js";
+import { serveStatic } from "./static.js";
+import { fetchGdeltEvents } from "./services/gdelt.js";
+import { fetchRssAlerts } from "./services/rss.js";
+import { fetchUcdpEvents } from "./services/ucdp.js";
+import { fetchUkraineAlerts } from "./services/ukraine-alerts.js";
+import { refreshAiSummary } from "./services/ai-summary.js";
+import { registerWss, broadcast } from "./ws.js";
+import { fetchEarthquakeAlerts } from "./services/usgs-earthquake.js";
+import { fetchNoaaAlerts, fetchGdacsAlerts, fetchHealthAlerts } from "./services/noaa-weather.js";
 
 const app = express();
 const httpServer = createServer(app);

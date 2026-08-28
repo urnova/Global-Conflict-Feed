@@ -1,10 +1,10 @@
-/**
+﻿/**
  * AI Chat Service — Argos V5
  * Interactive chat with Groq — streaming + context from alert DB.
  * Rate-limited: 6 req/minute server-side (Groq free tier safe).
  */
 
-import { storage } from '../storage';
+import { storage } from '../storage.js';
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 

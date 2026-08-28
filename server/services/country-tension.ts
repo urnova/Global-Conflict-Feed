@@ -1,10 +1,10 @@
-/**
+﻿/**
  * Country Tension Service — Argos V7
  * AI-powered classification via Groq (hourly cache).
  * Falls back to algorithmic scoring if Groq is unavailable.
  */
 
-import { storage } from '../storage';
+import { storage } from '../storage.js';
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 

@@ -1,4 +1,4 @@
-import { db } from "./db";
+﻿import { db } from "./db.js";
 import { lt, gt, and, gte } from "drizzle-orm";
 import {
   alerts,

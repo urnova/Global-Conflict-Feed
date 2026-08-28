@@ -1,6 +1,6 @@
-import Parser from "rss-parser";
-import { storage } from "./storage";
-import { fetchTwitterFeed } from "./twitter-client";
+﻿import Parser from "rss-parser";
+import { storage } from "./storage.js";
+import { fetchTwitterFeed } from "./twitter-client.js";
 
 const parser = new Parser();
 

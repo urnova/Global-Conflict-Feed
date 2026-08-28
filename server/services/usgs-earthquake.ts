@@ -1,4 +1,4 @@
-/**
+﻿/**
  * USGS Earthquake Service — Argos V7
  * Source: USGS Earthquake Hazards Program (100% public, no API key needed)
  * Feeds:
@@ -7,8 +7,8 @@
  */
 
 import { createHash } from 'crypto';
-import { storage } from '../storage';
-import { broadcast } from '../ws';
+import { storage } from '../storage.js';
+import { broadcast } from '../ws.js';
 
 const USGS_FEEDS = [
   'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson',

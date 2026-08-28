@@ -1,4 +1,4 @@
-/**
+﻿/**
  * NOAA / NWS Weather Alerts Service — Argos V7
  * Source: National Weather Service (public API, no key needed)
  * + GDACS Global Disaster Alert RSS
@@ -6,8 +6,8 @@
  */
 
 import { createHash } from 'crypto';
-import { storage } from '../storage';
-import { broadcast } from '../ws';
+import { storage } from '../storage.js';
+import { broadcast } from '../ws.js';
 
 function fingerprint(input: string): string {
   return createHash('sha256').update(input).digest('hex').slice(0, 32);

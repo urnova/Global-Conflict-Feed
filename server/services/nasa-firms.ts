@@ -1,4 +1,4 @@
-/**
+﻿/**
  * NASA FIRMS Integration
  * Fetches near-real-time thermal anomalies (explosions, fires, strikes)
  * detected by VIIRS satellite.
@@ -10,7 +10,7 @@
  */
 
 import { createHash } from 'crypto';
-import { storage } from '../storage';
+import { storage } from '../storage.js';
 
 function fingerprint(input: string): string {
     return createHash('sha256').update(input).digest('hex').slice(0, 32);

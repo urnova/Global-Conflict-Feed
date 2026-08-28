@@ -1,17 +1,17 @@
-import type { Express } from "express";
+﻿import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage } from "./storage.js";
 import { api } from "@shared/routes";
 import { z } from "zod";
-import { broadcast } from "./ws";
-import { addSseClient, removeSseClient, broadcastSse } from "./sse";
-import { fetchGdeltEvents } from "./services/gdelt";
-import { fetchRssAlerts } from "./services/rss";
-import { getCountryTension } from "./services/country-tension";
-import { fetchFirmsAlerts } from "./services/nasa-firms";
-import { getAiSummary, refreshAiSummary } from "./services/ai-summary";
-import { chatWithArgos, streamChatWithArgos, nextAvailableIn } from "./services/ai-chat";
-import { runMigrations, pool } from "./db";
+import { broadcast } from "./ws.js";
+import { addSseClient, removeSseClient, broadcastSse } from "./sse.js";
+import { fetchGdeltEvents } from "./services/gdelt.js";
+import { fetchRssAlerts } from "./services/rss.js";
+import { getCountryTension } from "./services/country-tension.js";
+import { fetchFirmsAlerts } from "./services/nasa-firms.js";
+import { getAiSummary, refreshAiSummary } from "./services/ai-summary.js";
+import { chatWithArgos, streamChatWithArgos, nextAvailableIn } from "./services/ai-chat.js";
+import { runMigrations, pool } from "./db.js";
 
 export async function registerRoutes(
   httpServer: Server,

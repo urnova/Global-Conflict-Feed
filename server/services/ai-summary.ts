@@ -1,10 +1,10 @@
-/**
+﻿/**
  * AI Summary Service — Argos V5
  * Generates an hourly geopolitical situation summary using Groq.
  * Cached for 60 minutes to avoid API abuse.
  */
 
-import { storage } from '../storage';
+import { storage } from '../storage.js';
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 

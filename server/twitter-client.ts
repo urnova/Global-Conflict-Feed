@@ -1,4 +1,4 @@
-import { storage } from "./storage";
+﻿import { storage } from "./storage.js";
 
 // Breaking news search queries for Twitter API v2
 const SEARCH_QUERIES = [
