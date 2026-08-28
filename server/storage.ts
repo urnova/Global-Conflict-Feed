@@ -42,11 +42,11 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   async getAlerts(): Promise<AlertsListResponse> {
-    return await db.select().from(alerts).orderBy(desc(alerts.timestamp));
+    return await db.select().from(alerts).where(eq(alerts.isActive, true)).orderBy(desc(alerts.timestamp));
   }
 
   async getAlertsAfter(id: number): Promise<AlertsListResponse> {
-    return await db.select().from(alerts).where(gt(alerts.id, id)).orderBy(alerts.id);
+    return await db.select().from(alerts).where(and(gt(alerts.id, id), eq(alerts.isActive, true))).orderBy(alerts.id);
   }
 
   async getAlert(id: number): Promise<AlertResponse | undefined> {
@@ -58,7 +58,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(alerts)
-      .where(eq(alerts.countryCode, countryCode))
+      .where(and(eq(alerts.countryCode, countryCode), eq(alerts.isActive, true)))
       .orderBy(desc(alerts.timestamp));
   }
 

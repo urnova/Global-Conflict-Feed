@@ -1,4 +1,4 @@
-﻿/**
+/**
  * GDELT Project Integration
  * Fetches real-time conflict events from the GDELT 2.0 database.
  * GDELT updates every 15 minutes and covers news in 100+ languages.
@@ -10,6 +10,7 @@
 import AdmZip from 'adm-zip';
 import { createHash } from 'crypto';
 import { storage } from '../storage.js';
+import { classifyAlert } from './groq-classifier.js';
 
 const GDELT_LASTUPDATE_URL = 'http://data.gdeltproject.org/gdeltv2/lastupdate.txt';
 
@@ -215,6 +216,7 @@ export async function fetchGdeltEvents(): Promise<number> {
     const seenSources = new Set(existing.map(a => a.source).filter(Boolean));
 
     let added = 0;
+    const aiPromises: Promise<void>[] = [];
 
     for (const line of lines) {
       const cols = line.split('\t');
@@ -274,9 +276,12 @@ export async function fetchGdeltEvents(): Promise<number> {
         if (similar) continue;
       }
 
+      const title = buildTitle(eventCode, location);
+      const description = buildDescription(actor1, actor2, location, goldstein);
+
       const inserted = await storage.createAlertIfNew({
-        title: buildTitle(eventCode, location),
-        description: buildDescription(actor1, actor2, location, goldstein),
+        title,
+        description,
         lat: lat.toString(),
         lng: lng.toString(),
         country: COUNTRY_NAMES[countryCode] || countryCode || 'Inconnu',
@@ -290,13 +295,35 @@ export async function fetchGdeltEvents(): Promise<number> {
         fingerprint: fp,
         severityScore: getSeverityScore(goldstein, numArticles, type),
         eventStart: eventDate,
+        originLat: null,
+        originLng: null,
       });
 
       if (!inserted) continue; // duplicate fingerprint
       if (sourceUrl) seenSources.add(sourceUrl);
       added++;
 
-      if (added >= 60) break;
+      aiPromises.push(classifyAlert(title, description).then(async (ai) => {
+        if (ai) {
+          await storage.updateAlert(inserted.id, {
+            aiVerified: ai.isRelevant,
+            aiLabel: ai.label || title,
+            type: ai.type || type,
+            severity: ai.severity || severity,
+            isActive: ai.isRelevant
+          });
+        } else {
+          await storage.updateAlert(inserted.id, { aiVerified: true, aiLabel: title });
+        }
+      }));
+
+      // Reduced to 20 to prevent hitting Groq rate limits (30 req/min) 
+      if (added >= 20) break;
+    }
+
+    if (aiPromises.length > 0) {
+      console.log(`[gdelt] Waiting for ${aiPromises.length} AI classifications to complete...`);
+      await Promise.allSettled(aiPromises);
     }
 
     lastProcessedFileUrl = fileUrl;

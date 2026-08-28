@@ -1,4 +1,4 @@
-﻿/**
+/**
  * USGS Earthquake Service — Argos V7
  * Source: USGS Earthquake Hazards Program (100% public, no API key needed)
  * Feeds:
@@ -9,6 +9,7 @@
 import { createHash } from 'crypto';
 import { storage } from '../storage.js';
 import { broadcast } from '../ws.js';
+import { classifyAlert } from './groq-classifier.js';
 
 const USGS_FEEDS = [
   'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson',
@@ -38,6 +39,7 @@ function magnitudeToType(mag: number, place: string): string {
 
 export async function fetchEarthquakeAlerts(): Promise<number> {
   let newCount = 0;
+  const aiPromises: Promise<void>[] = [];
 
   for (const feedUrl of USGS_FEEDS) {
     try {
@@ -53,7 +55,7 @@ export async function fetchEarthquakeAlerts(): Promise<number> {
       for (const feature of features) {
         const props = feature.properties;
         const coords = feature.geometry?.coordinates;
-        if (!coords || !props.mag || props.mag < 2.5) continue;
+        if (!coords || !props.mag || props.mag < 5.0) continue;
 
         const mag = props.mag;
         const place = props.place ?? 'Localisation inconnue';
@@ -63,11 +65,11 @@ export async function fetchEarthquakeAlerts(): Promise<number> {
         const { severity, score } = magnitudeToSeverity(mag);
         const type = magnitudeToType(mag, place);
 
-        // Extract country-ish info from USGS place string (e.g. "10km SSW of Hualien City, Taiwan")
+        // Extract country-ish info from USGS place string
         const placeMatch = place.match(/,\s*([^,]+)$/);
         const locationHint = placeMatch ? placeMatch[1].trim() : place;
 
-        const title = `Séisme M${mag.toFixed(1)} — ${place}`;
+        const title = `Séisme M${mag.toFixed(1)} - ${place}`;
         const description = `Magnitude ${mag.toFixed(1)} à ${Math.abs(coords[2] ?? 0).toFixed(1)}km de profondeur. Localisation: ${place}. Données USGS.`;
 
         const alert = await storage.createAlertIfNew({
@@ -87,8 +89,6 @@ export async function fetchEarthquakeAlerts(): Promise<number> {
           severityScore: score,
           isActive: true,
           eventStart: time,
-          aiVerified: true,
-          aiLabel: title,
           originLat: null,
           originLng: null,
         });
@@ -96,11 +96,30 @@ export async function fetchEarthquakeAlerts(): Promise<number> {
         if (alert) {
           newCount++;
           broadcast('new_alert', alert);
+          
+          aiPromises.push(classifyAlert(title, description).then(async (ai) => {
+            if (ai) {
+              await storage.updateAlert(alert.id, {
+                aiVerified: ai.isRelevant,
+                aiLabel: ai.label || title,
+                type: ai.type || type,
+                severity: ai.severity || severity,
+                isActive: ai.isRelevant
+              });
+            } else {
+              await storage.updateAlert(alert.id, { aiVerified: true, aiLabel: title });
+            }
+          }));
         }
       }
     } catch (err) {
       console.error(`[usgs] Feed error:`, err instanceof Error ? err.message : err);
     }
+  }
+
+  if (aiPromises.length > 0) {
+    console.log(`[usgs] Waiting for ${aiPromises.length} AI classifications to complete...`);
+    await Promise.allSettled(aiPromises);
   }
 
   return newCount;
